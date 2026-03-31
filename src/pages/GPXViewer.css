@@ -123,6 +123,117 @@
   background: #2980b9;
 }
 
+/* Multi-tracks panel */
+.multi-tracks-panel {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.multi-tracks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #3498db;
+  color: white;
+}
+
+.multi-tracks-header h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.clear-all-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.clear-all-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.tracks-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.track-item:hover {
+  background: #f5f5f5;
+}
+
+.track-item.active {
+  background: #ebf5fb;
+  border-left: 3px solid #3498db;
+}
+
+.track-item input[type="checkbox"] {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.track-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.track-name {
+  flex: 1;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.track-distance {
+  font-size: 0.75rem;
+  color: #666;
+  white-space: nowrap;
+}
+
+.track-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.track-action-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.track-action-btn:hover {
+  opacity: 1;
+}
+
+.track-action-btn.remove:hover {
+  color: #e74c3c;
+}
+
 @media (max-width: 768px) {
   .gpx-viewer {
     flex-direction: column;

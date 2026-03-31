@@ -44,3 +44,54 @@
   color: #7f8c8d;
   margin: 0;
 }
+
+/* Multiple file upload */
+.upload-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.multi-btn {
+  background: #2ecc71;
+}
+
+.multi-btn:hover {
+  background: #27ae60;
+}
+
+.selected-files {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.selected-files ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.selected-files li {
+  margin-bottom: 0.25rem;
+  color: #555;
+}
+
+.clear-files-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.clear-files-btn:hover {
+  background: #c0392b;
+}

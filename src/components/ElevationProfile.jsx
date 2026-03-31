@@ -4,6 +4,7 @@ import './ElevationProfile.css'
 
 export default function ElevationProfile({ 
   gpxContent, 
+  trackName = null,
   isOverlay = false,
   routeCoordinates = [], 
   totalDistance = null,
@@ -293,7 +294,7 @@ export default function ElevationProfile({
       onMouseDown={handleDragStart}
     >
       <div className="drag-handle">⋮⋮</div>
-      <h4>📊 Profilo</h4>
+      <h4>📊 Profilo {trackName ? `- ${trackName}` : ''}</h4>
       <div 
         className="chart-container" 
         style={{ height: size.height - 60 }}

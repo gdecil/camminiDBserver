@@ -201,9 +201,13 @@ export default function Map({
   selectedIndex = null, // 0-1 value for highlighted position
   onHover = null, // callback for hover
   markers = [], // markers for home page
-  onMarkerClick = null // callback for marker click
+  onMarkerClick = null, // callback for marker click
+  multipleTracks = [] // Array of {coordinates, color} for multi-track display
 }) {
-  const allCoords = [...trackCoordinates, ...routeCoordinates]
+  // Combine coordinates from single track, route, or multiple tracks
+  const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
+  const allCoords = multiTrackCoords.length > 0 ? [...multiTrackCoords, ...trackCoordinates, ...routeCoordinates] 
+    : [...trackCoordinates, ...routeCoordinates]
   const waypointPositions = waypoints.map(wp => wp.position)
   const bounds = allCoords.length > 0 || waypointPositions.length > 0
     ? L.latLngBounds([...allCoords, ...waypointPositions])
@@ -228,7 +232,21 @@ export default function Map({
           <MarkersLayer markers={markers} onMarkerClick={onMarkerClick} />
         )}
         
-        {trackCoordinates.length > 0 && (
+        {/* Multiple colored tracks */}
+        {multipleTracks.length > 0 && multipleTracks.map((track, index) => (
+          track.coordinates.length > 0 && (
+            <Polyline 
+              key={index}
+              positions={track.coordinates} 
+              color={track.color || '#3498db'} 
+              weight={4} 
+              opacity={0.8} 
+            />
+          )
+        ))}
+        
+        {/* Single track (legacy) */}
+        {trackCoordinates.length > 0 && multipleTracks.length === 0 && (
           <Polyline 
             positions={trackCoordinates} 
             color="#3498db" 
