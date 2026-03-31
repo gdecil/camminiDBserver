@@ -130,6 +130,14 @@ src/
 - Hover sincronizzato tra profilo e mappa per ogni traccia
 - Tabs colorati per navigare tra i profili
 
+### Ricerca Luoghi lungo il Percorso (POI)
+- Trova Hotel, Guest House, Ostelli, Campeggi, Ristoranti, Cafè e Rifugi
+- Risultati raggruppati per categoria
+- Ordinamento per distanza, nome o categoria
+- Checkbox "Visualizza tutti" per espandere/collassare categorie
+- Click su un luogo per vedere il segnaposto sulla mappa
+- Segnaposto personalizzato con icona e nome del luogo
+
 ## 📱 Responsive
 
 L'app è ottimizzata per:

@@ -203,7 +203,8 @@ export default function Map({
   markers = [], // markers for home page
   onMarkerClick = null, // callback for marker click
   multipleTracks = [], // Array of {coordinates, color} for multi-track display
-  hoverTrack = null // {coordinates, color, index} for hover marker on loaded track
+  hoverTrack = null, // {coordinates, color, index} for hover marker on loaded track
+  poiMarker = null // {position, icon, name} for POI marker
 }) {
   // Combine coordinates from single track, route, or multiple tracks
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
@@ -312,6 +313,38 @@ export default function Map({
             })}
             interactive={false}
             zIndexOffset={1000}
+          />
+        )}
+        
+        {/* POI marker */}
+        {poiMarker && poiMarker.position && (
+          <Marker
+            position={poiMarker.position}
+            icon={L.divIcon({
+              className: 'poi-marker',
+              html: `<div style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+              ">
+                <span style="
+                  background: white;
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  font-size: 10px;
+                  white-space: nowrap;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                  font-weight: bold;
+                ">${poiMarker.icon} ${poiMarker.name}</span>
+                <div style="
+                  font-size: 24px;
+                  margin-top: -2px;
+                  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+                ">📍</div>
+              </div>`,
+              iconSize: [40, 40],
+              iconAnchor: [20, 40]
+            })}
           />
         )}
       </MapContainer>
