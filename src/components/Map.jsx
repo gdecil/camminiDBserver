@@ -202,7 +202,8 @@ export default function Map({
   onHover = null, // callback for hover
   markers = [], // markers for home page
   onMarkerClick = null, // callback for marker click
-  multipleTracks = [] // Array of {coordinates, color} for multi-track display
+  multipleTracks = [], // Array of {coordinates, color} for multi-track display
+  hoverTrack = null // {coordinates, color, index} for hover marker on loaded track
 }) {
   // Combine coordinates from single track, route, or multiple tracks
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
@@ -289,6 +290,28 @@ export default function Map({
           <SelectedPointMarker 
             coordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates}
             selectedIndex={selectedIndex}
+          />
+        )}
+        
+        {/* Hover marker for loaded track profile sync */}
+        {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
+          <Marker
+            position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]}
+            icon={L.divIcon({
+              className: 'loaded-track-hover-marker',
+              html: `<div style="
+                background-color: ${hoverTrack.color || '#ff9800'};
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+              "></div>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            })}
+            interactive={false}
+            zIndexOffset={1000}
           />
         )}
       </MapContainer>

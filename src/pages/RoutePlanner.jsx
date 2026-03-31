@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Map from '../components/Map'
 import LayerSelector from '../components/LayerSelector'
@@ -125,6 +125,17 @@ export default function RoutePlanner() {
   const [message, setMessage] = useState(null)
   const [currentLayer, setCurrentLayer] = useState('OpenStreetMap')
   const [savedRoutes, setSavedRoutes] = useState([])
+  
+  // Multiple saved routes loaded simultaneously
+  const [loadedRouteIds, setLoadedRouteIds] = useState([]) // IDs of loaded routes
+  const [loadedRoutes, setLoadedRoutes] = useState([]) // Array of {id, name, coordinates, color, distance, elevation}
+  const LOADED_ROUTE_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e', '#ff6b6b', '#4ecdc4']
+  
+  // Profile tabs for loaded routes
+  const [showLoadedProfile, setShowLoadedProfile] = useState(false)
+  const [activeProfileTab, setActiveProfileTab] = useState(null) // null | 'current' | 'route_${id}'
+  const [loadedTrackHoverIndex, setLoadedTrackHoverIndex] = useState(null) // index on active loaded track
+  const [hoveredLoadedRouteId, setHoveredLoadedRouteId] = useState(null) // ID of loaded route being hovered
   const [sortBy, setSortBy] = useState('date')
   const [sortOrder, setSortOrder] = useState('desc')
   const [showRouteProfile, setShowRouteProfile] = useState(false)
@@ -276,6 +287,53 @@ export default function RoutePlanner() {
       if (route.distance) setDistance(route.distance)
       showMessage(`Itinerario "${route.name}" caricato`, 'success')
     }
+  }
+
+  // Toggle load/unload a saved route (additionally to current)
+  const toggleLoadRoute = (route) => {
+    const isLoaded = loadedRouteIds.includes(route.id)
+    if (isLoaded) {
+      // Unload route
+      setLoadedRouteIds(prev => prev.filter(id => id !== route.id))
+      setLoadedRoutes(prev => prev.filter(r => r.id !== route.id))
+      // Reset profile tab if needed
+      if (activeProfileTab === `route_${route.id}`) {
+        setActiveProfileTab(null)
+      }
+      showMessage(`Itinerario "${route.name}" rimosso`, 'info')
+    } else {
+      // Load route additionally
+      let coords = []
+      if (route.coordinates) {
+        if (typeof route.coordinates === 'string') {
+          try { coords = JSON.parse(route.coordinates) } catch (e) { coords = [] }
+        } else if (Array.isArray(route.coordinates)) {
+          coords = route.coordinates
+        }
+      }
+      const color = LOADED_ROUTE_COLORS[loadedRoutes.length % LOADED_ROUTE_COLORS.length]
+      setLoadedRouteIds(prev => [...prev, route.id])
+      setLoadedRoutes(prev => [...prev, {
+        id: route.id,
+        name: route.name,
+        coordinates: coords,
+        color,
+        distance: route.distance || '?',
+        elevation: route.elevation || null,
+        distanceNum: parseFloat(route.distance) || 0
+      }])
+      // Auto-select the profile tab for the newly loaded route
+      setActiveProfileTab(`route_${route.id}`)
+      setShowLoadedProfile(true)
+      showMessage(`Itinerario "${route.name}" aggiunto alla mappa`, 'success')
+    }
+  }
+
+  // Clear all additionally loaded routes
+  const clearLoadedRoutes = () => {
+    setLoadedRouteIds([])
+    setLoadedRoutes([])
+    showMessage('Tutti gli itinerari aggiuntivi rimossi', 'info')
   }
 
   const handleDeleteRoute = async (route) => {
@@ -623,6 +681,11 @@ export default function RoutePlanner() {
     const lng = parseFloat(wp.lng)
     return !isNaN(lat) && !isNaN(lng)
   })
+  
+  // Find hovered loaded route
+  const hoveredRoute = loadedTrackHoverIndex !== null && hoveredLoadedRouteId
+    ? loadedRoutes.find(r => r.id === hoveredLoadedRouteId)
+    : null
 
   return (
     <div className={`route-planner ${isFullscreen ? 'fullscreen-mode' : ''}`}>
@@ -642,11 +705,24 @@ export default function RoutePlanner() {
           {isFullscreen ? '✕' : '⛶'}
         </button>
         
+        {/* Multiple loaded routes rendered with colored polylines */}
+        {loadedRoutes.map(r => r.coordinates.length > 0 && (
+          <div key={r.id} style={{ display: 'none' }} />
+        ))}
         <Map
           trackCoordinates={routeCoordinates}
           startMarker={validWaypoints.length > 0 ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)] : null}
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
           routeCoordinates={routeCoordinates}
+          multipleTracks={loadedRoutes.map(r => ({
+            coordinates: r.coordinates,
+            color: r.color
+          }))}
+          hoverTrack={hoveredRoute ? {
+            coordinates: hoveredRoute.coordinates,
+            color: hoveredRoute.color,
+            index: loadedTrackHoverIndex
+          } : null}
           onMapClick={handleMapClick}
           currentLayer={currentLayer}
           waypoints={validWaypoints.map((wp, i) => ({
@@ -659,6 +735,7 @@ export default function RoutePlanner() {
           selectedIndex={selectedIndex}
           onHover={(index) => setSelectedIndex(index)}
         />
+        
         
         {showRouteProfile && routeGPXContent && elevationData && !loadingElevation && (
           <div className="route-profile-container">
@@ -804,30 +881,155 @@ export default function RoutePlanner() {
                 </div>
               </div>
               <div className="routes-list">
-                {getSortedRoutes().map(route => (
-                  <div key={route.id} className="route-item">
-                    <div className="route-info">
-                      <strong>{route.name}</strong>
-                      <small>
-                        {route.distance ? `${route.distance} km` : ''} 
-                        {route.elevation ? ' 📊' : ''}
-                        {' • '}{new Date(route.createdAt || route.created_at).toLocaleDateString()}
-                      </small>
+                {getSortedRoutes().map(route => {
+                  const isLoaded = loadedRouteIds.includes(route.id)
+                  return (
+                    <div key={route.id} className={`route-item ${isLoaded ? 'loaded' : ''}`}>
+                      <div className="route-info">
+                        <strong>{isLoaded ? '✅' : ''} {route.name}</strong>
+                        <small>
+                          {route.distance ? `${route.distance} km` : ''} 
+                          {route.elevation ? ' 📊' : ''}
+                          {' • '}{new Date(route.createdAt || route.created_at).toLocaleDateString()}
+                        </small>
+                      </div>
+                      <div className="route-actions">
+                        <button 
+                          className={`small-btn ${isLoaded ? 'loaded-btn' : ''}`} 
+                          onClick={() => toggleLoadRoute(route)}
+                          title={isLoaded ? 'Rimuovi dalla sovrapposizione' : 'Aggiungi alla sovrapposizione'}
+                        >
+                          {isLoaded ? '✓ Sovrapposto' : '+ Aggiungi'}
+                        </button>
+                        <button className="small-btn edit-btn" onClick={() => handleLoadRoute(route)} title="Modifica itinerario">
+                          ✏️ Modifica
+                        </button>
+                        <button className="small-btn" onClick={() => handleExportRoute(route)} title="Esporta GPX">📥</button>
+                        <button className="small-btn danger" onClick={() => handleDeleteRoute(route)}>🗑️</button>
+                      </div>
                     </div>
-                    <div className="route-actions">
-                      <button className="small-btn" onClick={() => handleLoadRoute(route)}>Carica</button>
-                      <button className="small-btn" onClick={() => handleExportRoute(route)} title="Esporta GPX">📥</button>
-                      <button className="small-btn" onClick={() => handleRenameRoute(route)} title="Rinomina">✏️</button>
-                      <button className="small-btn danger" onClick={() => handleDeleteRoute(route)}>🗑️</button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              
+              {/* Clear all additionally loaded routes button */}
+              {loadedRoutes.length > 0 && (
+                <div className="clear-loaded-routes-bar">
+                  <span>{loadedRoutes.length} itinerari{loadedRoutes.length > 1 ? ' sovrapposti' : ' sovrapposto'} sulla mappa</span>
+                  <button className="clear-loaded-btn" onClick={clearLoadedRoutes}>✕ Rimuovi tutti</button>
+                </div>
+              )}
+              
+              {/* Profile tabs for loaded routes */}
+              {loadedRoutes.length > 0 && showLoadedProfile && (
+                <div className="loaded-profiles-container">
+                  <div className="profile-tabs">
+                    {loadedRoutes.map((route, index) => (
+                      <button
+                        key={route.id}
+                        className={`profile-tab ${activeProfileTab === `route_${route.id}` ? 'active' : ''}`}
+                        onClick={() => setActiveProfileTab(`route_${route.id}`)}
+                      >
+                        <span 
+                          className="tab-color-indicator" 
+                          style={{ backgroundColor: route.color }}
+                        />
+                        <span className="tab-name" title={route.name}>{route.name}</span>
+                        <span className="tab-distance">{route.distance !== '?' ? `${route.distance} km` : ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Profile for selected loaded route */}
+                  {(() => {
+                    const activeRoute = loadedRoutes.find(r => `route_${r.id}` === activeProfileTab)
+                    if (!activeProfileTab || !activeRoute) return null
+                    return (
+                      <LoadRouteProfile
+                        key={activeRoute.id}
+                        route={activeRoute}
+                        selectedIndex={loadedTrackHoverIndex}
+                        onHover={(index, routeId) => {
+                          setLoadedTrackHoverIndex(index)
+                          setHoveredLoadedRouteId(routeId)
+                        }}
+                        onHoverEnd={() => {
+                          setLoadedTrackHoverIndex(null)
+                          setHoveredLoadedRouteId(null)
+                        }}
+                      />
+                    )
+                  })()}
+                </div>
+              )}
+              
+              {/* Toggle button for loaded profiles */}
+              {loadedRoutes.length > 0 && (
+                <button className="toggle-loaded-profile-btn" onClick={() => setShowLoadedProfile(!showLoadedProfile)}>
+                  {showLoadedProfile ? '📍 Nascondi profili' : '📊 Mostra profili itinerari'}
+                </button>
+              )}
             </div>
           )}
           {message && <div className={`message ${message.type}`}>{message.text}</div>}
         </div>
       )}
+    </div>
+  )
+}
+
+
+// Component to display elevation profile for loaded route
+function LoadRouteProfile({ route, onHover, onHoverEnd, selectedIndex }) {
+  const [profileGPX, setProfileGPX] = useState(null)
+  
+  const handleHover = (index) => {
+    if (onHover) {
+      onHover(index, route.id)
+    }
+  }
+  
+  const handleHoverEndLocal = () => {
+    if (onHoverEnd) {
+      onHoverEnd()
+    }
+  }
+  
+  useEffect(() => {
+    if (route?.coordinates && route.elevation && route.elevation.length > 0) {
+      // Generate GPX from saved elevation data
+      const elevations = route.elevation
+      const coords = route.coordinates
+      let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1">\n<trk>\n<trkseg>\n'
+      
+      elevations.forEach((ele, i) => {
+        const coordIndex = Math.floor((i / (elevations.length - 1)) * (coords.length - 1))
+        const coord = coords[coordIndex] || coords[0]
+        if (coord) {
+          gpx += `    <trkpt lat="${coord[0]?.toFixed(6) || 0}" lon="${coord[1]?.toFixed(6) || 0}"><ele>${ele?.toFixed(2) || 0}</ele></trkpt>\n`
+        }
+      })
+      gpx += '</trkseg>\n</trk>\n</gpx>'
+      setProfileGPX(gpx)
+    }
+  }, [route])
+  
+  if (!profileGPX) {
+    return (
+      <div className="loaded-profile-placeholder">
+        <p>Profilo altimetrico non disponibile per questo itinerario</p>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="loaded-profile-container" onMouseLeave={handleHoverEndLocal}>
+      <ElevationProfile 
+        gpxContent={profileGPX}
+        trackName={route.name}
+        selectedIndex={selectedIndex || null}
+        onHover={handleHover}
+      />
     </div>
   )
 }

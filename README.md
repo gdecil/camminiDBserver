@@ -15,32 +15,46 @@
 - Sidebar con lista di tutti i cammini salvati
 
 ### 📍 Carica GPX
-- Carica file GPX dal tuo dispositivo
-- Visualizza tracce su mappa interattiva
+- **Caricamento multiplo**: Carica più file GPX contemporaneamente 🆕
+- Visualizza tracce sovrapposte su mappa interattiva con colori diversi 🆕
 - Profilo altimetrico con sincronizzazione mappa ↔ grafico
 - Salva e gestisci le tue tracce
+- Lista tracce con checkbox per mostrare/nascondere ciascuna traccia 🆕
 
 ### 🗺️ Calcola Percorso
 - Pianifica itinerari multi-tappa
 - Trascina i punti sulla mappa
 - Calcola distanza e dislivelli
+- **3 servizi di routing disponibili:** 🆕
+  - **OSRM** - Open Source Routing Machine (gratuito, nessuna API key)
+  - **Valhalla** - Open source routing engine (gratuito via server demo)
+  - **GraphHopper** - Fast open-source routing (richiede API key gratuita)
 - Esporta percorsi come GPX
+
+### 📚 Itinerari Salvati - Sovrapposizione 🆕
+- **Aggiungi più itinerari contemporaneamente sulla mappa**
+- Ogni itinerario ha un colore distinto per facile identificazione
+- **Profili altimetrici sincronizzati** per ogni itinerario sovrapposto
+- **Hover sincronizzato**: passa il mouse sul profilo per vedere il punto sulla mappa
+- Tabs per selezionare quale profilo visualizzare
+- Pulsante "Modifica" per caricare un itinerario completo con waypoint ed elevazione
 
 ### 📥 Esporta GPX
 - Esporta tracce caricate come file GPX
+- Esporta itinerari sovrapposti come file GPX
 - Esporta itinerari calcolati come GPX (con waypoint separati)
 - Disponibile dalla Home, da Carica GPX e da Calcola Percorso
 
-### �️ Modalità Fullscreen
-- Premi ⛶ per massima immersività
-- La mappa occupa tutto lo schermo
-- In "Calcola Percorso" la modifica è disabilitata in fullscreen
-
-### �🗺️ Mete Mappe
+### 🗺️ Strati Mappa
 - OpenStreetMap
 - OpenTopoMap
 - Stamen Terrain
 - CartoDB Positron/Dark
+
+### 🖥️ Modalità Fullscreen
+- Premi ⛶ per massima immersività
+- La mappa occupa tutto lo schermo
+- In "Calcola Percorso" la modifica è disabilitata in fullscreen
 
 ## 🚀 Avvio
 
@@ -70,15 +84,15 @@ L'app sarà disponibile su:
 ```
 src/
 ├── components/
-│   ├── Map.jsx              # Componente mappa Leaflet
+│   ├── Map.jsx              # Componente mappa Leaflet con supporto multi-traccia
 │   ├── ElevationProfile.jsx # Grafico altimetrico D3
-│   ├── FileUpload.jsx       # Upload file GPX
+│   ├── FileUpload.jsx       # Upload singolo/multiplo file GPX
 │   ├── LayerSelector.jsx    # Selettore tipo mappa
 │   └── SavedTracks.jsx      # Gestione tracce salvate
 ├── pages/
 │   ├── HomeMap.jsx          # Pagina home con mappa e segnaposti
-│   ├── GPXViewer.jsx       # Pagina visualizzazione GPX
-│   └── RoutePlanner.jsx    # Pagina pianificazione percorsi
+│   ├── GPXViewer.jsx        # Pagina visualizzazione GPX multipla
+│   └── RoutePlanner.jsx     # Pagina pianificazione con routing multiplo
 ├── App.jsx                  # Componente principale
 └── main.jsx                 # Entry point React
 ```
@@ -91,8 +105,30 @@ src/
 - **React-Leaflet** - Wrapper React per Leaflet
 - **D3.js** - Grafico altimetrico
 - **OSRM API** - Routing
+- **Valhalla API** - Routing alternativo
+- **GraphHopper API** - Routing ad alte prestazioni
 - **OpenTopoData API** - Elevazione
 - **SQL.js** - Database locale (tracce salvate)
+- **Electron** - App desktop
+
+## 🆕 Ultime Novità
+
+### Caricamento Multiplo GPX
+- Seleziona più file GPX contemporaneamente
+- Ogni traccia appare con un colore diverso sulla mappa
+- Checkbox per mostrare/nascondere singole tracce
+- Lista tracce con anteprima dei file selezionati
+
+### Tre Motori di Routing
+- **OSRM**: Gratuito, nessuna configurazione necessaria
+- **Valhalla**: Gratuito, server demo integrato
+- **GraphHopper**: API key gratuita disponibile su graphhopper.com
+
+### Sovrapposizione Itinerari
+- Aggiungi più itinerari salvati sulla stessa mappa
+- Profilo altimetrico per ogni itinerario
+- Hover sincronizzato tra profilo e mappa per ogni traccia
+- Tabs colorati per navigare tra i profili
 
 ## 📱 Responsive
 
