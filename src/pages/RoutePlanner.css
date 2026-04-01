@@ -47,17 +47,17 @@
 .waypoints-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  max-height: 350px;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  max-height: 280px;
   overflow-y: auto;
   padding-right: 5px;
 }
 
 .waypoint-item {
   background: #f8f9fa;
-  border-radius: 8px;
-  padding: 0.75rem;
+  border-radius: 6px;
+  padding: 0.5rem;
   border-left: 4px solid #3498db;
   transition: all 0.2s;
 }
@@ -70,28 +70,28 @@
 .waypoint-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
 }
 
 .waypoint-number {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   flex-shrink: 0;
 }
 
 .waypoint-drag-handle {
   cursor: grab;
   color: #95a5a6;
-  font-size: 1.2rem;
-  padding: 0 0.25rem;
+  font-size: 1rem;
+  padding: 0 0.15rem;
   user-select: none;
   flex-shrink: 0;
 }
@@ -109,8 +109,8 @@
   flex: 1;
   border: 1px solid #dfe6e9;
   border-radius: 4px;
-  padding: 0.4rem;
-  font-size: 0.9rem;
+  padding: 0.3rem;
+  font-size: 0.8rem;
   background: white;
 }
 
@@ -124,8 +124,8 @@
   border: none;
   color: #e74c3c;
   cursor: pointer;
-  font-size: 1.1rem;
-  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
   border-radius: 4px;
   transition: background 0.2s;
 }
@@ -136,16 +136,17 @@
 
 .waypoint-coords {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .waypoint-coords input {
   flex: 1;
-  padding: 0.4rem;
+  padding: 0.3rem;
   border: 1px solid #dfe6e9;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   background: white;
+  min-width: 0;
 }
 
 .waypoint-coords input:focus {
@@ -156,9 +157,9 @@
 .segment-distance {
   text-align: center;
   color: #7f8c8d;
-  font-size: 0.8rem;
-  padding: 0.25rem;
-  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  padding: 0.15rem;
+  margin-top: 0.3rem;
   background: white;
   border-radius: 4px;
   border: 1px dashed #bdc3c7;

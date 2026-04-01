@@ -408,6 +408,90 @@ export default function RoutePlanner() {
   }
 
   const handleExportRoute = (route) => { const gpx = generateRouteGPX(route); if (gpx) downloadGPX(gpx, route.name) }
+
+  // Convert GPX to KML format
+  const gpxToKml = (gpxContent, name) => {
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(gpxContent, 'text/xml')
+    
+    let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${name || 'Route'}</name>
+    <Style id="trackStyle">
+      <LineStyle>
+        <color>ff0000ff</color>
+        <width>4</width>
+      </LineStyle>
+    </Style>
+`
+    
+    // Parse tracks
+    const tracks = xmlDoc.getElementsByTagName('trk')
+    for (let i = 0; i < tracks.length; i++) {
+      const trackName = tracks[i].getElementsByTagName('name')[0]?.textContent || `Track ${i + 1}`
+      const trackSegments = tracks[i].getElementsByTagName('trkseg')
+      
+      for (let j = 0; j < trackSegments.length; j++) {
+        const trackPoints = trackSegments[j].getElementsByTagName('trkpt')
+        if (trackPoints.length > 0) {
+          kml += `    <Placemark>
+      <name>${trackName}${trackSegments.length > 1 ? ` (Segment ${j + 1})` : ''}</name>
+      <styleUrl>#trackStyle</styleUrl>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>
+`
+          for (let k = 0; k < trackPoints.length; k++) {
+            const lat = parseFloat(trackPoints[k].getAttribute('lat'))
+            const lon = parseFloat(trackPoints[k].getAttribute('lon'))
+            const ele = trackPoints[k].getElementsByTagName('ele')[0]?.textContent || '0'
+            kml += `          ${lon},${lat},${ele}
+`
+          }
+          kml += `        </coordinates>
+      </LineString>
+    </Placemark>
+`
+        }
+      }
+    }
+    
+    kml += `  </Document>
+</kml>`
+    return kml
+  }
+
+  // Open Google My Maps for KML import (with automatic file download)
+  const openGoogleMyMaps = () => {
+    if (!routeGPXContent) {
+      showMessage('Calcola prima un percorso', 'warning')
+      return
+    }
+
+    // Get route name
+    const routeName = waypoints.length > 0 
+      ? `${waypoints[0]?.name || 'Punto 1'} - ${waypoints[waypoints.length-1]?.name || 'Punto finale'}`
+      : 'Route'
+    
+    // Convert GPX to KML
+    const kmlContent = gpxToKml(routeGPXContent, routeName)
+    
+    // Create download link for KML
+    const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${routeName}.kml`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    // Open Google My Maps in new tab
+    window.open('https://www.google.com/maps/d/', '_blank')
+    showMessage('File KML scaricato! Vai su Google My Maps per importarlo', 'success')
+  }
   const routeGPXContent = generateRouteGPXForProfile()
   const validWaypoints = waypoints.filter(wp => !isNaN(parseFloat(wp.lat)) && !isNaN(parseFloat(wp.lng)))
   const hoveredRoute = loadedTrackHoverIndex !== null && hoveredLoadedRouteId ? loadedRoutes.find(r => r.id === hoveredLoadedRouteId) : null
@@ -547,7 +631,7 @@ export default function RoutePlanner() {
             <button className="calc-btn" onClick={calculateMultiRoute} disabled={isCalculating}>{isCalculating ? '⏳ Calcolo...' : `🚶 Calcola (${ROUTING_SERVICES[routingService]?.name || routingService})`}</button>
             {waypoints.length > 0 && <button className="clear-btn" onClick={clearAllWaypoints}>🗑️ Svuota</button>}
           </div>
-          {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button></div>}</div>}
+          {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button><button className="google-maps-btn primary" onClick={openGoogleMyMaps} title="Scarica KML e importa in Google My Maps">🗺️ Scarica per Google My Maps</button></div>}</div>}
         </CollapsibleSection>
 
         {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${savedRoutes.length})`} defaultOpen={true} resizable onResize={setSavedRoutesHeight}>
