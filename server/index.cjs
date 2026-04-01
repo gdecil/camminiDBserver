@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const initSqlJs = require('sql.js');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -66,7 +67,9 @@ async function initDatabase() {
         { table: 'routes', col: 'ascent', type: 'INTEGER' },
         { table: 'routes', col: 'descent', type: 'INTEGER' },
         { table: 'routes', col: 'min_ele', type: 'INTEGER' },
-        { table: 'routes', col: 'max_ele', type: 'INTEGER' }
+        { table: 'routes', col: 'max_ele', type: 'INTEGER' },
+        { table: 'tracks', col: 'photo_folder_path', type: 'TEXT' },
+        { table: 'routes', col: 'photo_folder_path', type: 'TEXT' }
     ];
     
     columnsToAdd.forEach(({ table, col, type }) => {
@@ -90,13 +93,99 @@ function saveDatabase() {
     }
 }
 
+// ===== PHOTO FOLDER API =====
+
+// Update photo folder path for a track/route
+app.put('/api/items/:id/photo-folder', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { photoFolderPath } = req.body;
+        
+        // Update in tracks first, then routes
+        db.run('UPDATE tracks SET photo_folder_path = ? WHERE id = ?', [photoFolderPath, id]);
+        db.run('UPDATE routes SET photo_folder_path = ? WHERE id = ?', [photoFolderPath, id]);
+        
+        saveDatabase();
+        res.json({ message: 'Photo folder path updated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get photos from a folder (returns file names, not actual file data due to browser security)
+app.post('/api/photos/list', (req, res) => {
+    try {
+        const { folderPath } = req.body;
+        if (!folderPath) {
+            return res.status(400).json({ error: 'Folder path is required' });
+        }
+
+        // Check if folder exists
+        if (!fs.existsSync(folderPath)) {
+            return res.status(404).json({ error: 'Folder not found' });
+        }
+
+        // Read directory and filter image files
+        const files = fs.readdirSync(folderPath);
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff'];
+        const imageFiles = files.filter(file => {
+            const ext = path.extname(file).toLowerCase();
+            return imageExtensions.includes(ext);
+        });
+
+        // Get file info (name, size, date)
+        const fileInfo = imageFiles.map(file => {
+            const filePath = path.join(folderPath, file);
+            const stats = fs.statSync(filePath);
+            return {
+                name: file,
+                path: path.join(folderPath, file),
+                size: stats.size,
+                modified: stats.mtime.toISOString()
+            };
+        });
+
+        res.json({ files: fileInfo, count: fileInfo.length });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Serve a specific photo file
+app.get('/api/photos/*', (req, res) => {
+    try {
+        const filePath = req.url.replace('/api/photos/', '');
+        const decodedPath = decodeURIComponent(filePath);
+        
+        if (!fs.existsSync(decodedPath)) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        const ext = path.extname(decodedPath).toLowerCase();
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.bmp': 'image/bmp',
+            '.tiff': 'image/tiff'
+        };
+
+        res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+        res.sendFile(path.resolve(decodedPath));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ===== UNIFIED API =====
 
 // Get all saved items (tracks + routes)
 app.get('/api/saved', (req, res) => {
     try {
-        const tracksResult = db.exec('SELECT id, name, coordinates, elevation, created_at FROM tracks ORDER BY created_at DESC');
-        const routesResult = db.exec('SELECT id, name, start_lat, start_lng, end_lat, end_lng, distance, coordinates, elevation, waypoints, ascent, descent, min_ele, max_ele, created_at FROM routes ORDER BY created_at DESC');
+        const tracksResult = db.exec('SELECT id, name, coordinates, elevation, created_at, photo_folder_path FROM tracks ORDER BY created_at DESC');
+        const routesResult = db.exec('SELECT id, name, start_lat, start_lng, end_lat, end_lng, distance, coordinates, elevation, waypoints, ascent, descent, min_ele, max_ele, created_at, photo_folder_path FROM routes ORDER BY created_at DESC');
         
         const items = [];
         
@@ -109,7 +198,8 @@ app.get('/api/saved', (req, res) => {
                     type: 'track',
                     coordinates: row[2] ? JSON.parse(row[2]) : [],
                     elevation: row[3] ? JSON.parse(row[3]) : null,
-                    created_at: row[4]
+                    created_at: row[4],
+                    photoFolderPath: row[5] || null
                 });
             });
         }
@@ -133,7 +223,8 @@ app.get('/api/saved', (req, res) => {
                     descent: row[11] || null,
                     minElevation: row[12] || null,
                     maxElevation: row[13] || null,
-                    created_at: row[14]
+                    created_at: row[14],
+                    photoFolderPath: row[15] || null
                 });
             });
         }
@@ -194,15 +285,16 @@ app.put('/api/saved/:id', (req, res) => {
 
 app.get('/api/tracks', (req, res) => {
     try {
-        const result = db.exec('SELECT * FROM tracks ORDER BY created_at DESC');
+        const result = db.exec('SELECT id, name, coordinates, elevation, created_at, photo_folder_path FROM tracks ORDER BY created_at DESC');
         if (result.length === 0) return res.json([]);
         
         const tracks = result[0].values.map(row => ({
             id: row[0],
             name: row[1],
             coordinates: row[2] || '[]',
-            created_at: row[3],
-            elevation: row[4] || null
+            elevation: row[3] || null,
+            created_at: row[4],
+            photoFolderPath: row[5] || null
         }));
         res.json(tracks);
     } catch (error) {
@@ -212,15 +304,17 @@ app.get('/api/tracks', (req, res) => {
 
 app.post('/api/tracks', (req, res) => {
     try {
-        const { name, coordinates, elevation } = req.body;
+        const { name, coordinates, elevation, photoFolderPath } = req.body;
         if (!name || !coordinates) {
             return res.status(400).json({ error: 'Name and coordinates are required' });
         }
 
-        const trackId = require('crypto').randomUUID();
+        console.log(`Saving track "${name}" with ${coordinates.length} coordinates and ${elevation ? elevation.length : 0} elevations`);
+
+        const trackId = crypto.randomUUID();
         const elevationStr = elevation ? JSON.stringify(elevation) : null;
-        db.run('INSERT INTO tracks (id, name, coordinates, elevation) VALUES (?, ?, ?, ?)', 
-            [trackId, name, JSON.stringify(coordinates), elevationStr]);
+        db.run('INSERT INTO tracks (id, name, coordinates, elevation, photo_folder_path) VALUES (?, ?, ?, ?, ?)', 
+            [trackId, name, JSON.stringify(coordinates), elevationStr, photoFolderPath || null]);
         saveDatabase();
 
         res.json({ id: trackId, message: 'Track saved successfully' });
@@ -259,7 +353,7 @@ app.put('/api/tracks/:id', (req, res) => {
 
 app.get('/api/routes', (req, res) => {
     try {
-        const result = db.exec('SELECT id, name, start_lat, start_lng, end_lat, end_lng, distance, coordinates, elevation, waypoints, ascent, descent, min_ele, max_ele, created_at FROM routes ORDER BY created_at DESC');
+        const result = db.exec('SELECT id, name, start_lat, start_lng, end_lat, end_lng, distance, coordinates, elevation, waypoints, ascent, descent, min_ele, max_ele, created_at, photo_folder_path FROM routes ORDER BY created_at DESC');
         if (result.length === 0) return res.json([]);
         
         const routes = result[0].values.map(row => ({
@@ -277,7 +371,8 @@ app.get('/api/routes', (req, res) => {
             descent: row[11],
             min_ele: row[12],
             max_ele: row[13],
-            created_at: row[14]
+            created_at: row[14],
+            photoFolderPath: row[15] || null
         }));
         res.json(routes);
     } catch (error) {
@@ -288,20 +383,21 @@ app.get('/api/routes', (req, res) => {
 
 app.post('/api/routes', (req, res) => {
     try {
-        const { name, startLat, startLng, endLat, endLng, distance, coordinates, elevation, waypoints, ascent, descent, minElevation, maxElevation } = req.body;
+        const { name, startLat, startLng, endLat, endLng, distance, coordinates, elevation, waypoints, ascent, descent, minElevation, maxElevation, photoFolderPath } = req.body;
         if (!name || !coordinates) {
             return res.status(400).json({ error: 'All route fields are required' });
         }
 
-        const routeId = require('crypto').randomUUID();
-        db.run(`INSERT INTO routes (id, name, start_lat, start_lng, end_lat, end_lng, distance, coordinates, elevation, waypoints, ascent, descent, min_ele, max_ele)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        const routeId = crypto.randomUUID();
+        db.run(`INSERT INTO routes (id, name, start_lat, start_lng, end_lat, end_lng, distance, coordinates, elevation, waypoints, ascent, descent, min_ele, max_ele, photo_folder_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [routeId, name, startLat, startLng, endLat, endLng, distance, 
              JSON.stringify(coordinates), 
              elevation ? JSON.stringify(elevation) : null,
              waypoints ? JSON.stringify(waypoints) : null,
              ascent || null, descent || null, 
-             minElevation || null, maxElevation || null]);
+             minElevation || null, maxElevation || null,
+             photoFolderPath || null]);
         saveDatabase();
 
         res.json({ id: routeId, message: 'Route saved successfully' });

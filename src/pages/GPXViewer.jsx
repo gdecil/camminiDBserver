@@ -5,6 +5,7 @@ import FileUpload from '../components/FileUpload'
 import SavedTracks from '../components/SavedTracks'
 import LayerSelector from '../components/LayerSelector'
 import ElevationProfile from '../components/ElevationProfile'
+import PhotoGallery from '../components/PhotoGallery'
 import './GPXViewer.css'
 
 const API_URL = '/api'
@@ -58,6 +59,31 @@ export default function GPXViewer() {
     }
   }, [isResizing])
 
+  // Helper function moved before usage
+  const resampleElevations = (elevations, targetLength) => {
+    if (!elevations || elevations.length === 0 || targetLength === 0) return Array(targetLength).fill(0)
+    if (elevations.length === targetLength) return elevations
+    
+    const result = []
+    const srcLen = elevations.length
+    
+    for (let i = 0; i < targetLength; i++) {
+      const srcIndex = (i / (targetLength - 1)) * (srcLen - 1)
+      const lowerIndex = Math.floor(srcIndex)
+      const upperIndex = Math.min(lowerIndex + 1, srcLen - 1)
+      const fraction = srcIndex - lowerIndex
+      
+      if (fraction === 0) {
+        result.push(elevations[lowerIndex])
+      } else {
+        const lower = elevations[lowerIndex] ?? 0
+        const upper = elevations[upperIndex] ?? 0
+        result.push(lower + (upper - lower) * fraction)
+      }
+    }
+    return result
+  }
+
   useEffect(() => {
     loadSavedTracks()
   }, [])
@@ -79,59 +105,58 @@ export default function GPXViewer() {
       const tracksObj = {}
       data.forEach(track => {
         try {
+          // Parse coordinates
+          let coordinates = null
           let coordsStr = track.coordinates
           
-          if (typeof coordsStr !== 'string') {
-            if (Array.isArray(coordsStr)) {
-              tracksObj[track.name] = {
-                ...track,
-                coordinates: coordsStr,
-                elevation: track.elevation ? JSON.parse(track.elevation) : null,
-                createdAt: track.created_at
-              }
-              return
+          if (typeof coordsStr === 'string') {
+            try {
+              coordinates = JSON.parse(coordsStr)
+            } catch (e) {
+              const match = coordsStr.match(/\[[\s\S]*\]/)
+              if (match) coordinates = JSON.parse(match[0])
             }
-            coordsStr = JSON.stringify(coordsStr)
+          } else if (Array.isArray(coordsStr)) {
+            coordinates = coordsStr
           }
           
-          try {
-            const coordinates = JSON.parse(coordsStr)
-            const elevationData = track.elevation ? JSON.parse(track.elevation) : null
-            tracksObj[track.name] = {
-              ...track,
-              coordinates,
-              elevation: elevationData,
-              createdAt: track.created_at
-            }
-          } catch (directParseError) {
-            const match = coordsStr.match(/\[[\s\S]*\]/)
-            
-            if (match) {
-              const matchedString = ('' + match[0])
-              const coordinates = JSON.parse(matchedString)
-              
-              let elevationData = null
-              if (track.elevation) {
-                try {
-                  const eleStr = String(track.elevation).trim()
-                  const eleMatch = eleStr.match(/\[[\s\S]*\]/)
-                  if (eleMatch) {
-                    elevationData = JSON.parse(eleMatch[0])
-                  } else {
-                    elevationData = JSON.parse(eleStr)
-                  }
-                } catch (eleError) {
-                  console.log('Elevation parse failed:', eleError.message)
+          if (!coordinates || coordinates.length === 0) {
+            throw new Error('No valid coordinates found')
+          }
+          
+            // Parse elevation - handle all formats
+          let elevationData = null
+          let eleRaw = track.elevation
+          if (eleRaw !== null && eleRaw !== undefined && eleRaw !== '') {
+            if (Array.isArray(eleRaw)) {
+              elevationData = eleRaw
+            } else if (typeof eleRaw === 'string') {
+              try {
+                // First try direct parse
+                let parsed = JSON.parse(eleRaw)
+                // Handle nested arrays from SQL.js
+                while (Array.isArray(parsed) && parsed.length === 1 && Array.isArray(parsed[0])) {
+                  parsed = parsed[0]
                 }
-              }
-              
-              tracksObj[track.name] = {
-                ...track,
-                coordinates,
-                elevation: elevationData,
-                createdAt: track.created_at
+                elevationData = parsed
+              } catch (e) {
+                console.log(`Could not parse elevation for track "${track.name}":`, e.message)
               }
             }
+          }
+          
+          // Resample elevation if needed
+          if (elevationData && Array.isArray(elevationData) && elevationData.length !== coordinates.length) {
+            elevationData = resampleElevations(elevationData, coordinates.length)
+          }
+          
+          console.log(`Track "${track.name}": ${coordinates.length} coordinates, ${elevationData ? elevationData.length : 0} elevations`)
+          
+          tracksObj[track.name] = {
+            ...track,
+            coordinates,
+            elevation: elevationData,
+            createdAt: track.created_at
           }
         } catch (parseError) {
           console.log('Track skipped:', track.name, parseError.message)
@@ -346,18 +371,38 @@ export default function GPXViewer() {
   const handleLoadTrack = (name) => {
     const track = savedTracks[name]
     if (track && track.coordinates) {
-      setTrackCoordinates(track.coordinates)
+      // Verify coordinates is an array of pairs [lat, lon]
+      const coordinates = Array.isArray(track.coordinates) && track.coordinates.length > 0 && Array.isArray(track.coordinates[0]) 
+        ? track.coordinates 
+        : null
       
-      if (track.coordinates.length > 0) {
-        if (track.elevation && track.elevation.length > 0) {
-          const realGPX = generateGPXFromElevations(track.coordinates, track.elevation)
+      if (!coordinates) {
+        showMessage(`Errore nel caricamento traccia "${name}"`, 'error')
+        return
+      }
+      
+      setTrackCoordinates(coordinates)
+      
+      if (coordinates.length > 0) {
+        // Verify elevation is valid array with same length as coordinates
+        let elevationData = null
+        if (track.elevation && Array.isArray(track.elevation) && track.elevation.length === coordinates.length) {
+          elevationData = track.elevation
+          // Store elevations for potential reuse
+          window._currentElevations = elevationData
+        }
+        
+        if (elevationData) {
+          const realGPX = generateGPXFromElevations(coordinates, elevationData)
           setGpxContent(realGPX)
         } else {
-          const simulatedGPX = generateGPXFromCoordinates(track.coordinates)
+          // If elevation doesn't match coordinates, generate simulated data
+          const simulatedGPX = generateGPXFromCoordinates(coordinates)
           setGpxContent(simulatedGPX)
+          console.warn(`Elevation data mismatch: ${track.elevation?.length || 0} elevations vs ${coordinates.length} coordinates for track "${name}"`)
         }
       }
-      showMessage(`Traccia "${name}" caricata`, 'success')
+      showMessage(`Traccia "${name}" caricata${track.elevation && Array.isArray(track.elevation) && track.elevation.length === coordinates.length ? ' con profilo altimetrico' : ' (profilo simulato)'}`, 'info')
     }
   }
 
@@ -627,6 +672,18 @@ export default function GPXViewer() {
   // Active GPX content for profile
   const activeGPXContent = activeTrack?.gpxContent || null
 
+  // Photo markers for map
+  const [photoMarkers, setPhotoMarkers] = useState([])
+  const [photoGalleryKey, setPhotoGalleryKey] = useState(0)
+
+  // Callback to receive photo markers from PhotoGallery
+  useEffect(() => {
+    window.onPhotoMarkersLoaded = (markers) => {
+      setPhotoMarkers(markers)
+    }
+    return () => { delete window.onPhotoMarkersLoaded }
+  }, [activeTrackId])
+
   const toggleProfileDetach = () => {
     setIsProfileDetached(!isProfileDetached)
   }
@@ -663,6 +720,7 @@ export default function GPXViewer() {
           currentLayer={currentLayer}
           selectedIndex={selectedIndex}
           onHover={(index) => setSelectedIndex(index)}
+          photoMarkers={photoMarkers}
         />
         
         {/* Profile overlay on map when detached - multiple tracks */}
@@ -810,9 +868,21 @@ export default function GPXViewer() {
             </>
           )}
           
+          {/* Photo Gallery - only show for loaded saved tracks */}
+          {activeTrackId && (
+            <PhotoGallery key={photoGalleryKey} itemId={activeTrackId} itemType="track" coordinates={activeTrack?.coordinates} />
+          )}
+          
           <SavedTracks
             tracks={savedTracks}
-            onLoad={handleLoadTrack}
+            onLoad={(name) => {
+              handleLoadTrack(name)
+              const track = savedTracks[name]
+              if (track) {
+                setActiveTrackId(track.id)
+                setPhotoGalleryKey(k => k + 1)
+              }
+            }}
             onDelete={handleDeleteTrack}
             onRename={handleRenameTrack}
             onSaveCurrent={handleSaveCurrent}

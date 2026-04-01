@@ -138,6 +138,16 @@ src/
 - Click su un luogo per vedere il segnaposto sulla mappa
 - Segnaposto personalizzato con icona e nome del luogo
 
+### 📷 Associazione Foto alle Tracce
+- Associa una cartella locale di foto a una traccia salvata
+- Percorso salvato nel database (associato una sola volta)
+- Se la cartella non viene trovata, chiede di riassociarla
+- Galleria foto scorrevole con anteprime
+- **Scansione GPS**: estrae coordinate GPS dai metadata EXIF delle foto
+- Foto con GPS visualizzate come marker sulla mappa
+- Click su un marker foto → popup con anteprima della foto
+- Esporta tracce GPX (per importazione in Google My Maps con conversione KML)
+
 ## 📱 Responsive
 
 L'app è ottimizzata per:
