@@ -233,7 +233,7 @@
 
 .tracks-list {
   max-height: 300px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .track-item {
@@ -265,6 +265,8 @@
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.8);
 }
 
 .track-name {

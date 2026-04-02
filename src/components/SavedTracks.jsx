@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FixedSizeList as List } from 'react-window'
 import './SavedTracks.css'
 
 // Genera GPX dalla traccia
@@ -30,23 +31,17 @@ const downloadGPX = (gpx, filename) => {
   URL.revokeObjectURL(url)
 }
 
-export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, onRename, hasTrack, filterId }) {
+export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, onRename, hasTrack }) {
   const [sortBy, setSortBy] = useState('date') // 'name' or 'date'
   const [sortOrder, setSortOrder] = useState('desc') // 'asc' or 'desc'
   const [editingName, setEditingName] = useState(null)
   const [newName, setNewName] = useState('')
-  const [filterActive, setFilterActive] = useState(!!filterId)
   
   // Convert tracks object to array and sort
-  let trackArray = Object.keys(tracks).map(name => ({
+  const trackArray = Object.keys(tracks).map(name => ({
     name,
     ...tracks[name]
   }))
-  
-  // Apply filter if filterId is provided
-  if (filterActive && filterId) {
-    trackArray = trackArray.filter(track => track.id === filterId)
-  }
   
   const sortedTracks = [...trackArray].sort((a, b) => {
     let comparison = 0
@@ -100,19 +95,6 @@ export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, o
         </button>
       </div>
 
-      {/* Filter indicator */}
-      {filterActive && filterId && (
-        <div className="filter-indicator">
-          <span>🔍 Filtro attivo: 1 traccia</span>
-          <button 
-            className="small-btn" 
-            onClick={() => setFilterActive(false)}
-          >
-            ✕ Rimuovi filtro
-          </button>
-        </div>
-      )}
-
       {/* Sort options */}
       <div className="sort-options">
         <span>Ordina:</span>
@@ -141,49 +123,59 @@ export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, o
         {sortedTracks.length === 0 ? (
           <p className="empty-message">Nessuna traccia salvata</p>
         ) : (
-          sortedTracks.map(track => (
-            <div key={track.name} className="track-item">
-              <div className="track-info">
-                {editingName === track.name ? (
-                  <input
-                    type="text"
-                    className="rename-input"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onBlur={() => handleRename(track.name)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleRename(track.name)}
-                    autoFocus
-                  />
-                ) : (
-                  <strong onDoubleClick={() => startRename(track.name)} title="Doppio click per rinominare">
-                    {track.name}
-                  </strong>
-                )}
-                <small>{new Date(track.createdAt).toLocaleString()}</small>
-              </div>
-              <div className="track-actions">
-                <button 
-                  className="small-btn"
-                  onClick={() => onLoad(track.name)}
-                >
-                  Carica
-                </button>
-                <button 
-                  className="small-btn"
-                  onClick={() => handleExport(track)}
-                  title="Esporta come GPX"
-                >
-                  📥
-                </button>
-                <button 
-                  className="small-btn danger"
-                  onClick={() => onDelete(track.name)}
-                >
-                  Elimina
-                </button>
-              </div>
-            </div>
-          ))
+          <List
+            height={Math.min(400, sortedTracks.length * 60)}
+            itemCount={sortedTracks.length}
+            itemSize={60}
+            width="100%"
+          >
+            {({ index, style }) => {
+              const track = sortedTracks[index];
+              return (
+                <div style={style} key={track.name} className="track-item">
+                  <div className="track-info">
+                    {editingName === track.name ? (
+                      <input
+                        type="text"
+                        className="rename-input"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onBlur={() => handleRename(track.name)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRename(track.name)}
+                        autoFocus
+                      />
+                    ) : (
+                      <strong onDoubleClick={() => startRename(track.name)} title="Doppio click per rinominare">
+                        {track.name}
+                      </strong>
+                    )}
+                    <small>{new Date(track.createdAt).toLocaleString()}</small>
+                  </div>
+                  <div className="track-actions">
+                    <button 
+                      className="small-btn"
+                      onClick={() => onLoad(track.name)}
+                    >
+                      Carica
+                    </button>
+                    <button 
+                      className="small-btn"
+                      onClick={() => handleExport(track)}
+                      title="Esporta come GPX"
+                    >
+                      📥
+                    </button>
+                    <button 
+                      className="small-btn danger"
+                      onClick={() => onDelete(track.name)}
+                    >
+                      Elimina
+                    </button>
+                  </div>
+                </div>
+              );
+            }}
+          </List>
         )}
       </div>
     </div>

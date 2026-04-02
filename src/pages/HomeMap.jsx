@@ -87,9 +87,11 @@ export default function HomeMap() {
   const [currentLayer, setCurrentLayer] = useState('OpenStreetMap')
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
+  const [filterText, setFilterText] = useState('')
   const [markers, setMarkers] = useState([])
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
+  const [showHikingOverlay, setShowHikingOverlay] = useState(false)
 
   useEffect(() => {
     loadSavedItems()
@@ -154,9 +156,13 @@ export default function HomeMap() {
     }
   }
 
+  const filteredItems = savedItems.filter(item => 
+    item.name.toLowerCase().includes(filterText.toLowerCase())
+  )
+
   // Prepara i marker quando savedItems cambia
   useEffect(() => {
-    const newMarkers = savedItems.map(item => {
+    const newMarkers = filteredItems.map(item => {
       const center = getCenterPoint(item)
       if (!center) return null
       
@@ -170,16 +176,20 @@ export default function HomeMap() {
     }).filter(m => m !== null)
     
     setMarkers(newMarkers)
-  }, [savedItems])
+  }, [filteredItems])
 
   console.log('Rendering HomeMap, savedItems:', savedItems.length, 'markers:', markers.length)
 
   return (
     <div className="home-map">
-      <LayerSelector 
-        currentLayer={currentLayer} 
-        onLayerChange={setCurrentLayer} 
-      />
+      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000 }}>
+        <LayerSelector 
+          currentLayer={currentLayer} 
+          onLayerChange={setCurrentLayer} 
+          showHikingOverlay={showHikingOverlay}
+          onOverlayToggle={setShowHikingOverlay}
+        />
+      </div>
       
       {loading ? (
         <div className="loading">Caricamento...</div>
@@ -195,17 +205,37 @@ export default function HomeMap() {
           currentLayer={currentLayer}
           zoom={6}
           center={[41.9029, 12.4964]}
+          showHikingOverlay={showHikingOverlay}
         />
       )}
       
       <div className="home-sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
         <h2>I Tuoi Cammini</h2>
+        
+        <div className="filter-container" style={{ marginBottom: '1rem', position: 'relative' }}>
+          <input 
+            type="text" 
+            placeholder="🔍 Cerca tra i cammini..." 
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            style={{ width: '100%', padding: '8px 30px 8px 10px', borderRadius: '4px', border: '1px solid #ddd' }}
+          />
+          {filterText && (
+            <button 
+              onClick={() => setFilterText('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#888' }}
+            >✕</button>
+          )}
+        </div>
+
         {savedItems.length === 0 ? (
           <p className="empty-message">Nessun elemento salvato</p>
+        ) : filteredItems.length === 0 ? (
+          <p className="empty-message">Nessun risultato per "{filterText}"</p>
         ) : (
           <ul className="items-list">
-            {savedItems.map(item => (
+            {filteredItems.map(item => (
               <li 
                 key={item.id} 
                 className="item-card"

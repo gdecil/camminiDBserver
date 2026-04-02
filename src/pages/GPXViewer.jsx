@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { FixedSizeList as List } from 'react-window'
 import { useSearchParams } from 'react-router-dom'
 import Map from '../components/Map'
 import FileUpload from '../components/FileUpload'
@@ -27,6 +28,7 @@ export default function GPXViewer() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(null)
   const [sidebarWidth, setSidebarWidth] = useState(350)
+  const [showHikingOverlay, setShowHikingOverlay] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
   const trackIdParam = searchParams.get('trackId')
@@ -695,6 +697,8 @@ export default function GPXViewer() {
         <LayerSelector 
           currentLayer={currentLayer} 
           onLayerChange={setCurrentLayer} 
+          showHikingOverlay={showHikingOverlay}
+          onOverlayToggle={setShowHikingOverlay}
         />
         
         <button 
@@ -721,6 +725,7 @@ export default function GPXViewer() {
           currentLayer={currentLayer}
           selectedIndex={selectedIndex}
           onHover={(index) => setSelectedIndex(index)}
+          showHikingOverlay={showHikingOverlay}
           photoMarkers={photoMarkers}
         />
         
@@ -768,52 +773,63 @@ export default function GPXViewer() {
                 </button>
               </div>
               <div className="tracks-list">
-                {tracks.map((track, index) => (
-                  <div 
-                    key={track.id} 
-                    className={`track-item ${activeTrackId === track.id ? 'active' : ''}`}
-                    onClick={() => setActiveTrack(track.id)}
-                  >
-                    <input 
-                      type="checkbox"
-                      checked={track.visible}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        toggleTrackVisibility(track.id)
-                      }}
-                      title="Mostra/Nascondi"
-                    />
-                    <span 
-                      className="track-color-indicator" 
-                      style={{ backgroundColor: track.color }}
-                      title={track.color}
-                    />
-                    <span className="track-name" title={track.fileName}>{track.name}</span>
-                    <span className="track-distance">{calculateDistance(track.coordinates)} km</span>
-                    <div className="track-actions">
-                      <button 
-                        className="track-action-btn" 
-                        onClick={(e) => { e.stopPropagation(); saveTrack(track) }}
-                        title="Salva nel database"
-                      >💾</button>
-                      <button 
-                        className="track-action-btn" 
-                        onClick={(e) => { e.stopPropagation(); downloadTrackGPX(track) }}
-                        title="Esporta GPX"
-                      >📥</button>
-                      <button 
-                        className="track-action-btn google-maps-btn" 
-                        onClick={(e) => { e.stopPropagation(); openInGoogleMaps(track.coordinates) }}
-                        title="Apri in Google Maps"
-                      >📍</button>
-                      <button 
-                        className="track-action-btn remove" 
-                        onClick={(e) => { e.stopPropagation(); removeTrack(track.id) }}
-                        title="Rimuovi"
-                      >✕</button>
-                    </div>
-                  </div>
-                ))}
+                <List
+                  height={Math.min(300, tracks.length * 45)}
+                  itemCount={tracks.length}
+                  itemSize={45}
+                  width="100%"
+                >
+                  {({ index, style }) => {
+                    const track = tracks[index];
+                    return (
+                      <div 
+                        style={style}
+                        key={track.id} 
+                        className={`track-item ${activeTrackId === track.id ? 'active' : ''}`}
+                        onClick={() => setActiveTrack(track.id)}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={track.visible}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            toggleTrackVisibility(track.id)
+                          }}
+                          title="Mostra/Nascondi"
+                        />
+                        <span 
+                          className="track-color-indicator" 
+                          style={{ backgroundColor: track.color }}
+                          title={track.color}
+                        />
+                        <span className="track-name" title={track.fileName}>{track.name}</span>
+                        <span className="track-distance">{calculateDistance(track.coordinates)} km</span>
+                        <div className="track-actions">
+                          <button 
+                            className="track-action-btn" 
+                            onClick={(e) => { e.stopPropagation(); saveTrack(track) }}
+                            title="Salva nel database"
+                          >💾</button>
+                          <button 
+                            className="track-action-btn" 
+                            onClick={(e) => { e.stopPropagation(); downloadTrackGPX(track) }}
+                            title="Esporta GPX"
+                          >📥</button>
+                          <button 
+                            className="track-action-btn google-maps-btn" 
+                            onClick={(e) => { e.stopPropagation(); openInGoogleMaps(track.coordinates) }}
+                            title="Apri in Google Maps"
+                          >📍</button>
+                          <button 
+                            className="track-action-btn remove" 
+                            onClick={(e) => { e.stopPropagation(); removeTrack(track.id) }}
+                            title="Rimuovi"
+                          >✕</button>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </List>
               </div>
             </div>
           )}

@@ -176,6 +176,7 @@ export default function RoutePlanner() {
   const [sidebarWidth, setSidebarWidth] = useState(380)
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
+  const [showHikingOverlay, setShowHikingOverlay] = useState(false)
   const routeIdParam = searchParams.get('routeId')
   const [routingService, setRoutingService] = useState('osrm')
   const [isCalculating, setIsCalculating] = useState(false)
@@ -718,14 +719,14 @@ export default function RoutePlanner() {
   return (
     <div className={`route-planner ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       <div className="map-section">
-        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} />
+        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} />
         <button className="fullscreen-btn" onClick={() => { !isFullscreen ? document.documentElement.requestFullscreen?.() : document.exitFullscreen?.(); setIsFullscreen(!isFullscreen) }} title={isFullscreen ? 'Esci' : 'Fullscreen'}>{isFullscreen ? '✕' : '⛶'}</button>
         <Map trackCoordinates={routeCoordinates} startMarker={validWaypoints.length > 0 ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)] : null}
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
           routeCoordinates={routeCoordinates} multipleTracks={loadedRoutes.map(r => ({ coordinates: r.coordinates, color: r.color }))}
           hoverTrack={hoveredRoute ? { coordinates: hoveredRoute.coordinates, color: hoveredRoute.color, index: loadedTrackHoverIndex } : null}
           onMapClick={handleMapClick} currentLayer={currentLayer} waypoints={validWaypoints.map((wp, i) => ({ position: [parseFloat(wp.lat), parseFloat(wp.lng)], color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], label: wp.name }))}
-          poiMarker={selectedPoi ? { position: [selectedPoi.lat, selectedPoi.lng], icon: selectedPoi.icon, name: selectedPoi.name } : null}
+          poiMarker={selectedPoi ? { position: [selectedPoi.lat, selectedPoi.lng], icon: selectedPoi.icon, name: selectedPoi.name } : null} showHikingOverlay={showHikingOverlay}
           onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} />
         {showRouteProfile && routeGPXContent && elevationData && !loadingElevation && <div className="route-profile-container"><ElevationProfile key={profileKey} gpxContent={routeGPXContent} isOverlay={false} routeCoordinates={routeCoordinates} totalDistance={distance ? parseFloat(distance) : null} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} /></div>}
       </div>
@@ -790,7 +791,7 @@ export default function RoutePlanner() {
           {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button><button className="google-maps-btn primary" onClick={openGoogleMyMaps} title="Scarica KML e importa in Google My Maps">🗺️ Scarica per Google My Maps</button></div>}</div>}
         </CollapsibleSection>
 
-        {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${routeFilterActive && routeIdParam ? 1 : savedRoutes.length})`} defaultOpen={true} resizable onResize={setSavedRoutesHeight}>
+        {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${routeFilterActive && routeIdParam ? 1 : savedRoutes.length})`} defaultOpen={false} resizable onResize={setSavedRoutesHeight}>
           <div className="saved-routes-content" style={{ height: savedRoutesHeight || 'auto', maxHeight: 'none', overflowY: 'auto' }}>
           <div className="saved-routes-header">
             {routeFilterActive && routeIdParam && (
@@ -818,7 +819,7 @@ export default function RoutePlanner() {
           </div>
         </CollapsibleSection>}
 
-        <CollapsibleSection id="poi" title="🔍 Luoghi lungo il percorso" defaultOpen={true}>
+        <CollapsibleSection id="poi" title="🔍 Luoghi lungo il percorso" defaultOpen={false}>
           <div className="poi-filters">
             <div className="poi-filter-row"><label>Raggio:</label><select value={poiSearchRadius} onChange={e => setPoiSearchRadius(Number(e.target.value))}><option value={500}>500m</option><option value={1000}>1 km</option><option value={2000}>2 km</option><option value={5000}>5 km</option></select></div>
             <div className="poi-categories">

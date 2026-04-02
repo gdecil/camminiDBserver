@@ -38,7 +38,8 @@
 }
 
 .tracks-list {
-  /* max-height removed - sidebar now handles scrolling */
+  max-height: 400px;
+  overflow: hidden;
 }
 
 .track-item {

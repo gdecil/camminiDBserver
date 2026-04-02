@@ -2,31 +2,7 @@ import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-
-const DEFAULT_LAYER = 'OpenStreetMap'
-
-const LAYERS = {
-  OpenStreetMap: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors'
-  },
-  OpenTopoMap: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: 'Map data: OpenStreetMap, SRTM | Map style: OpenTopoMap'
-  },
-  'Stamen Terrain': {
-    url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg',
-    attribution: 'Map tiles by Stamen Design, CC BY 3.0'
-  },
-  'CartoDB Positron': {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-  },
-  'CartoDB Dark': {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-  }
-}
+import { LAYERS, DEFAULT_LAYER } from './mapConfig'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -170,7 +146,7 @@ export default function Map({
   center = [41.9029, 12.4964], zoom = 13, onMapClick = null, currentLayer = 'OpenStreetMap',
   waypoints = [], onWaypointDragEnd = null, draggable = true, selectedIndex = null,
   onHover = null, markers = [], onMarkerClick = null, multipleTracks = [],
-  hoverTrack = null, poiMarker = null, photoMarkers = []
+  hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false
 }) {
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
   const allCoords = multiTrackCoords.length > 0 ? [...multiTrackCoords, ...trackCoordinates, ...routeCoordinates] : [...trackCoordinates, ...routeCoordinates]
@@ -182,6 +158,14 @@ export default function Map({
     <div className="map-wrapper">
       <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution={layer.attribution} url={layer.url} />
+        {showHikingOverlay && (
+          <TileLayer 
+            url="https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>'
+            zIndex={10}
+            opacity={0.7}
+          />
+        )}
         {markers.length > 0 && onMarkerClick && <MarkersLayer markers={markers} onMarkerClick={onMarkerClick} />}
         {multipleTracks.length > 0 && multipleTracks.map((track, index) => (
           track.coordinates.length > 0 && <Polyline key={index} positions={track.coordinates} color={track.color || '#3498db'} weight={4} opacity={0.8} />
