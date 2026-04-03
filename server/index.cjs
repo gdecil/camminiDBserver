@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DB_PATH = './gpx_viewer.db';
+const DIST_PATH = path.join(__dirname, '..', 'dist');
 
 let db;
 
@@ -471,6 +472,19 @@ app.post('/api/elevation', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// Serve static files from dist/ folder (for production deployment)
+if (fs.existsSync(DIST_PATH)) {
+    app.use(express.static(DIST_PATH));
+    console.log('Serving static files from:', DIST_PATH);
+    
+    // Fallback to index.html for SPA routing
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(DIST_PATH, 'index.html'));
+    });
+} else {
+    console.log('WARNING: dist/ folder not found. Run "npm run build" first.');
+}
 
 // Start server
 async function start() {
