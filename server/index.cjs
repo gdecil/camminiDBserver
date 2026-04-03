@@ -8,12 +8,29 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DB_PATH = './gpx_viewer.db';
+const DIST_PATH = path.join(__dirname, '..', 'dist');
+
+// Lista database disponibili
+const AVAILABLE_DATABASES = [
+    { name: 'gpx_viewer.db', label: 'Default' },
+    { name: 'gpx_viewerAs.db', label: 'Ascenti' },
+    { name: 'gpx_viewerLen.db', label: 'Lunghezza' }
+];
 
 let db;
+let currentDbName = 'gpx_viewer.db';
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Serve static files from dist/ folder (for production deployment)
+if (fs.existsSync(DIST_PATH)) {
+    app.use(express.static(DIST_PATH));
+    console.log('Serving static files from:', DIST_PATH);
+} else {
+    console.log('WARNING: dist/ folder not found. Run npm run build first.');
+}
 
 // Initialize database
 async function initDatabase() {
@@ -437,7 +454,61 @@ app.put('/api/routes/:id', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK' });
+    res.json({ status: 'OK', currentDb: currentDbName });
+});
+
+// ===== DATABASE MANAGEMENT API =====
+
+// Get list of available databases
+app.get('/api/databases', (req, res) => {
+    try {
+        const databases = AVAILABLE_DATABASES.map(db => ({
+            ...db,
+            exists: fs.existsSync(path.join(__dirname, '..', db.name)),
+            current: db.name === currentDbName
+        }));
+        res.json({ databases, currentDb: currentDbName });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Switch to a different database (requires server restart)
+app.post('/api/switch-db', (req, res) => {
+    try {
+        const { dbName } = req.body;
+        
+        if (!dbName) {
+            return res.status(400).json({ error: 'dbName is required' });
+        }
+        
+        const dbConfig = AVAILABLE_DATABASES.find(d => d.name === dbName);
+        if (!dbConfig) {
+            return res.status(400).json({ 
+                error: 'Database non valido',
+                available: AVAILABLE_DATABASES.map(d => d.name)
+            });
+        }
+        
+        const dbPath = path.join(__dirname, '..', dbName);
+        if (!fs.existsSync(dbPath)) {
+            return res.status(404).json({ error: `Database non trovato: ${dbName}` });
+        }
+        
+        // Salva il database corrente prima di uscire
+        saveDatabase();
+        
+        // Aggiorna il percorso del database
+        currentDbName = dbName;
+        
+        res.json({ 
+            message: `Database cambiato a ${dbName}. Riavvia il server per applicare le modifiche.`,
+            newDb: dbName,
+            needsRestart: true
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Proxy endpoint for OpenTopoData to bypass CORS

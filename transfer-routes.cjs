@@ -2,8 +2,8 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 
-const SOURCE_DB = 'C:\\Users\\gdeci\\IaAi\\gpx-viewer-react\\gpx_viewer0.db';
-const TARGET_DB = 'C:\\Users\\gdeci\\IaAi\\gpx-viewer-react\\gpx_viewer.db';
+const SOURCE_DB = 'C:\\Users\\gdeci\\IaAi\\gpx-viewer-react\\gpx_viewer.db';
+const TARGET_DB = 'C:\\Users\\gdeci\\IaAi\\gpx-viewer-react\\gpx_viewer0.db';
 
 async function transferRoutes() {
     const SQL = await initSqlJs();

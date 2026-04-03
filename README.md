@@ -159,6 +159,18 @@ L'app è ottimizzata per:
 - Tablet 📱
 - Mobile 📱
 
+## 📄 Utility
+1. `GET http://localhost:3001/api/databases` - per listare i database
+2. `GET http://localhost:3001/api/health` - per vedere il database corrente
+3. `POST /api/switch-db` - Cambia database
+
+node switch-db.cjs gpx_viewerAs.db
+node verify-routes.cjs
+node transfer-routes
+
+  - Body: `{ "dbName": "gpx_viewerAs.db" }`
+  - Richiede riavvio del server per applicare le modifiche
+
 ## 📄 Licenza
 
 MIT License
