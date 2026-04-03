@@ -20,6 +20,78 @@ const AVAILABLE_DATABASES = [
 let db;
 let currentDbName = 'gpx_viewer.db';
 
+// Password per operazioni protette (cambiala con una variabile d'ambiente)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'cammini2026';
+
+// IP autorizzati senza password (localhost e rete locale)
+const ALLOWED_IPS = ['127.0.0.1', '::1', 'localhost'];
+
+// Helper: verifica se la richiesta è da IP locale o rete locale
+function isLocalNetwork(req) {
+    // Estrai IP dalla richiesta (supporta anche proxy/nginx)
+    let clientIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '';
+    
+    // Rimuovi prefix IPv6 se presente
+    clientIp = clientIp.replace(/^::ffff:/, '');
+    
+    // Prova anche X-Forwarded-For header (usato da nginx/proxy)
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (forwardedFor) {
+        // Prendi il primo IP nella lista (quello originale del client)
+        const ips = forwardedFor.split(',').map(ip => ip.trim());
+        clientIp = ips[0];
+    }
+    
+    // Prova anche X-Real-IP
+    const realIp = req.headers['x-real-ip'];
+    if (realIp) {
+        clientIp = realIp.trim();
+    }
+    
+    // Log per debug
+    console.log('Client IP rilevato:', clientIp);
+    
+    // Controlla localhost
+    if (ALLOWED_IPS.includes(clientIp) || clientIp === 'localhost') {
+        return true;
+    }
+    
+    // Controlla rete locale 192.168.x.x
+    if (clientIp.startsWith('192.168.')) {
+        return true;
+    }
+    
+    // Controlla rete locale 10.x.x.x
+    if (clientIp.startsWith('10.')) {
+        return true;
+    }
+    
+    // Controlla rete locale 172.16-31.x.x
+    if (clientIp.startsWith('172.')) {
+        const parts = clientIp.split('.');
+        if (parts.length >= 2) {
+            const second = parseInt(parts[1]);
+            if (second >= 16 && second <= 31) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+// Helper: valida password admin
+function validateAdminPassword(req, res, next) {
+    // Solo localhost o rete locale può operare senza password
+    if (!isLocalNetwork(req)) {
+        return res.status(401).json({ 
+            error: 'Operazione consentita solo da localhost o rete locale',
+            hint: 'Per modifiche remote, usa l\'accesso diretto al server'
+        });
+    }
+    next();
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -257,7 +329,7 @@ app.get('/api/saved', (req, res) => {
 });
 
 // Delete saved item (by id, regardless of type)
-app.delete('/api/saved/:id', (req, res) => {
+app.delete('/api/saved/:id', validateAdminPassword, (req, res) => {
     try {
         const { id } = req.params;
         
@@ -274,7 +346,7 @@ app.delete('/api/saved/:id', (req, res) => {
 });
 
 // Rename saved item
-app.put('/api/saved/:id', (req, res) => {
+app.put('/api/saved/:id', validateAdminPassword, (req, res) => {
     try {
         const { id } = req.params;
         const { name } = req.body;
@@ -340,7 +412,7 @@ app.post('/api/tracks', (req, res) => {
     }
 });
 
-app.delete('/api/tracks/:id', (req, res) => {
+app.delete('/api/tracks/:id', validateAdminPassword, (req, res) => {
     try {
         const { id } = req.params;
         db.run('DELETE FROM tracks WHERE id = ?', [id]);
@@ -351,7 +423,7 @@ app.delete('/api/tracks/:id', (req, res) => {
     }
 });
 
-app.put('/api/tracks/:id', (req, res) => {
+app.put('/api/tracks/:id', validateAdminPassword, (req, res) => {
     try {
         const { id } = req.params;
         const { name } = req.body;
@@ -424,7 +496,7 @@ app.post('/api/routes', (req, res) => {
     }
 });
 
-app.delete('/api/routes/:id', (req, res) => {
+app.delete('/api/routes/:id', validateAdminPassword, (req, res) => {
     try {
         const { id } = req.params;
         db.run('DELETE FROM routes WHERE id = ?', [id]);
@@ -435,7 +507,7 @@ app.delete('/api/routes/:id', (req, res) => {
     }
 });
 
-app.put('/api/routes/:id', (req, res) => {
+app.put('/api/routes/:id', validateAdminPassword, (req, res) => {
     try {
         const { id } = req.params;
         const { name } = req.body;

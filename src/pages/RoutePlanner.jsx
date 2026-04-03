@@ -340,13 +340,38 @@ export default function RoutePlanner() {
     catch (error) { showMessage('Errore nell\'eliminazione', 'error') }
   }
 
+  const interpolateElevations = (sampledElevations) => {
+    // Interpola le elevazioni campionate a tutte le coordinate
+    if (!sampledElevations || sampledElevations.length < 2 || !routeCoordinates.length) return sampledElevations
+    
+    const step = Math.max(1, Math.floor(routeCoordinates.length / (sampledElevations.length - 1)))
+    const interpolated = []
+    
+    for (let i = 0; i < routeCoordinates.length; i++) {
+      const ratio = i / (routeCoordinates.length - 1)
+      const sampledIndex = ratio * (sampledElevations.length - 1)
+      const lowerIndex = Math.floor(sampledIndex)
+      const upperIndex = Math.min(lowerIndex + 1, sampledElevations.length - 1)
+      const fraction = sampledIndex - lowerIndex
+      
+      const ele = sampledElevations[lowerIndex] * (1 - fraction) + sampledElevations[upperIndex] * fraction
+      interpolated.push(Math.round(ele * 100) / 100) // arrotonda a 0.01m
+    }
+    
+    return interpolated
+  }
+
   const handleSaveRoute = async () => {
     if (!distance || waypoints.length < 2) { showMessage('Calcola prima il percorso', 'error'); return }
     const routeName = prompt('Nome per l\'itinerario:', `Itinerario ${new Date().toLocaleDateString()}`)
     if (!routeName) return
     const validWaypoints = waypoints.filter(wp => !isNaN(parseFloat(wp.lat)) && !isNaN(parseFloat(wp.lng)))
+    
+    // Interpola le elevazioni per tutte le coordinate
+    const fullElevations = elevationData?.elevations ? interpolateElevations(elevationData.elevations) : null
+    
     try {
-      await fetch(`${API_URL}/routes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: routeName, startLat: parseFloat(validWaypoints[0].lat), startLng: parseFloat(validWaypoints[0].lng), endLat: parseFloat(validWaypoints[validWaypoints.length - 1].lat), endLng: parseFloat(validWaypoints[validWaypoints.length - 1].lng), distance, coordinates: routeCoordinates, elevation: elevationData?.elevations || null, waypoints: validWaypoints.map(wp => ({ lat: wp.lat, lng: wp.lng, name: wp.name })), ascent: elevationData?.ascent || null, descent: elevationData?.descent || null, minElevation: elevationData?.minElevation || null, maxElevation: elevationData?.maxElevation || null }) })
+      await fetch(`${API_URL}/routes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: routeName, startLat: parseFloat(validWaypoints[0].lat), startLng: parseFloat(validWaypoints[0].lng), endLat: parseFloat(validWaypoints[validWaypoints.length - 1].lat), endLng: parseFloat(validWaypoints[validWaypoints.length - 1].lng), distance, coordinates: routeCoordinates, elevation: fullElevations, waypoints: validWaypoints.map(wp => ({ lat: wp.lat, lng: wp.lng, name: wp.name })), ascent: elevationData?.ascent || null, descent: elevationData?.descent || null, minElevation: elevationData?.minElevation || null, maxElevation: elevationData?.maxElevation || null }) })
       showMessage(`Itinerario "${routeName}" salvato!`, 'success'); loadSavedRoutes()
     } catch (error) { showMessage('Errore nel salvataggio', 'error') }
   }
@@ -433,20 +458,56 @@ export default function RoutePlanner() {
 
   const generateRouteGPXForProfile = () => {
     if (!elevationData?.elevations?.length || !routeCoordinates.length) return null
-    let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1">\n<trk>\n<trkseg>\n'
-    elevationData.elevations.forEach((ele, i) => {
-      const coordIndex = Math.floor((i / (elevationData.elevations.length - 1)) * (routeCoordinates.length - 1))
-      const coord = routeCoordinates[coordIndex]
-      if (coord) gpx += `    <trkpt lat="${coord[0].toFixed(6)}" lon="${coord[1].toFixed(6)}"><ele>${ele.toFixed(2)}</ele></trkpt>\n`
+    
+    // Interpola le elevazioni campionate su tutte le coordinate
+    const fullElevations = []
+    for (let i = 0; i < routeCoordinates.length; i++) {
+      const ratio = i / (routeCoordinates.length - 1)
+      const sampledIndex = ratio * (elevationData.elevations.length - 1)
+      const lowerIndex = Math.floor(sampledIndex)
+      const upperIndex = Math.min(lowerIndex + 1, elevationData.elevations.length - 1)
+      const fraction = sampledIndex - lowerIndex
+      
+      const ele = elevationData.elevations[lowerIndex] * (1 - fraction) + elevationData.elevations[upperIndex] * fraction
+      fullElevations.push(ele)
+    }
+    
+    let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk>\n    <trkseg>\n'
+    routeCoordinates.forEach((coord, i) => {
+      const ele = fullElevations[i] || 0
+      gpx += `      <trkpt lat="${coord[0].toFixed(6)}" lon="${coord[1].toFixed(6)}"><ele>${ele.toFixed(2)}</ele></trkpt>\n`
     })
-    return gpx + '</trkseg>\n</trk>\n</gpx>'
+    return gpx + '    </trkseg>\n  </trk>\n</gpx>'
   }
 
   const generateRouteGPX = (route) => {
     const { coordinates, elevation, name } = route; if (!coordinates?.length) return null
-    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Cammini">\n  <metadata>\n    <name>${name}</name>\n  </metadata>\n<trk>\n<trkseg>\n`
-    coordinates.forEach((coord) => gpx += `    <trkpt lat="${coord[0]}" lon="${coord[1]}">\n      <ele>0</ele>\n    </trkpt>\n`)
-    return gpx + '</trkseg>\n</trk>\n</gpx>'
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1" creator="Cammini">\n  <metadata>\n    <name>${name}</name>\n  </metadata>\n  <trk>\n    <name>${name}</name>\n    <trkseg>\n`
+    
+    // Se elevazioni non sono interpolate (lunghezza diversa dalle coordinate), interpolale
+    let fullElevations = elevation
+    if (elevation && elevation.length > 0 && elevation.length !== coordinates.length && elevation.length > 1) {
+      fullElevations = []
+      for (let i = 0; i < coordinates.length; i++) {
+        const ratio = i / (coordinates.length - 1)
+        const sampledIndex = ratio * (elevation.length - 1)
+        const lowerIndex = Math.floor(sampledIndex)
+        const upperIndex = Math.min(lowerIndex + 1, elevation.length - 1)
+        const fraction = sampledIndex - lowerIndex
+        
+        const ele = elevation[lowerIndex] * (1 - fraction) + elevation[upperIndex] * fraction
+        fullElevations.push(ele)
+      }
+    }
+    
+    coordinates.forEach((coord, i) => {
+      let ele = 0
+      if (fullElevations && Array.isArray(fullElevations) && i < fullElevations.length) {
+        ele = fullElevations[i]
+      }
+      gpx += `      <trkpt lat="${coord[0].toFixed(6)}" lon="${coord[1].toFixed(6)}">\n        <ele>${ele.toFixed(2)}</ele>\n      </trkpt>\n`
+    })
+    return gpx + '    </trkseg>\n  </trk>\n</gpx>'
   }
 
   const downloadGPX = (gpx, filename) => {
