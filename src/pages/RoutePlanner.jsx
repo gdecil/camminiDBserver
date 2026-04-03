@@ -174,6 +174,7 @@ export default function RoutePlanner() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(null)
   const [sidebarWidth, setSidebarWidth] = useState(380)
+  const [sidebarMode, setSidebarMode] = useState('normal')
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
@@ -206,7 +207,13 @@ export default function RoutePlanner() {
   const [activeWaypointId, setActiveWaypointId] = useState(null)
   const [loadedTotals, setLoadedTotals] = useState({ distance: 0, ascent: 0, descent: 0 })
 
-  const handleResizeStart = (e) => { e.preventDefault(); setIsResizing(true) }
+  const handleResizeStart = (e) => { e.preventDefault(); setIsResizing(true); setSidebarMode('custom') }
+
+  const toggleSidebarMode = () => {
+    const newMode = sidebarMode === 'wide' ? 'normal' : 'wide'
+    setSidebarMode(newMode)
+    setSidebarWidth(newMode === 'wide' ? 520 : 380)
+  }
 
   // Calculate totals for loaded routes
   useEffect(() => {
@@ -732,6 +739,12 @@ export default function RoutePlanner() {
       </div>
       {!isFullscreen && <div className="sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+        <div className="sidebar-header">
+          <h3>Itinerario</h3>
+          <button className="sidebar-toggle-btn" onClick={toggleSidebarMode}>
+            {sidebarMode === 'wide' ? '🔽 Compatto' : '🔼 Larga'}
+          </button>
+        </div>
         
         <CollapsibleSection id="itinerary" title="🗺️ Itinerario Multi-Tappa" defaultOpen={true}>
           <p className="hint">Aggiungi punti di passaggio</p>

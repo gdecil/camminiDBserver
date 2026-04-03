@@ -21,8 +21,39 @@
 }
 
 .route-planner .sidebar {
-  width: 380px;
+  width: clamp(320px, 30vw, 500px);
+  min-width: 300px;
+  max-width: 520px;
   overflow-y: auto;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.sidebar-toggle-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #2980b9;
 }
 
 .coord-panel {
@@ -141,8 +172,10 @@
 
 .waypoint-coords input {
   flex: 1;
-  padding: 0.3rem;
+  min-width: 0;
+  padding: 0.5rem;
   border: 1px solid #dfe6e9;
+  font-size: 0.9rem;
   border-radius: 4px;
   font-size: 0.75rem;
   background: white;

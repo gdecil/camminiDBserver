@@ -91,10 +91,11 @@
 }
 
 .sidebar {
-  width: 350px;
-  min-width: 250px;
-  max-width: 500px;
+  width: clamp(320px, 30vw, 520px);
+  min-width: 300px;
+  max-width: 520px;
   display: flex;
+  box-sizing: border-box;
   flex-direction: column;
   gap: 1rem;
   overflow-y: auto;
@@ -149,6 +150,32 @@
 
 .message.info {
   background: #3498db;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.sidebar-toggle-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #2980b9;
 }
 
 @keyframes slideUp {

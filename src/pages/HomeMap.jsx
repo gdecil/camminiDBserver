@@ -89,7 +89,8 @@ export default function HomeMap() {
   const navigate = useNavigate()
   const [filterText, setFilterText] = useState('')
   const [markers, setMarkers] = useState([])
-  const [sidebarWidth, setSidebarWidth] = useState(280)
+  const [sidebarWidth, setSidebarWidth] = useState(320)
+  const [sidebarMode, setSidebarMode] = useState('normal') // normal or wide
   const [isResizing, setIsResizing] = useState(false)
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
 
@@ -101,13 +102,20 @@ export default function HomeMap() {
   const handleResizeStart = (e) => {
     e.preventDefault()
     setIsResizing(true)
+    setSidebarMode('custom')
+  }
+
+  const toggleSidebarMode = () => {
+    const newMode = sidebarMode === 'wide' ? 'normal' : 'wide'
+    setSidebarMode(newMode)
+    setSidebarWidth(newMode === 'wide' ? 500 : 320)
   }
 
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizing) return
       const newWidth = window.innerWidth - e.clientX
-      setSidebarWidth(Math.min(400, Math.max(200, newWidth)))
+      setSidebarWidth(Math.min(500, Math.max(280, newWidth)))
     }
     const handleMouseUp = () => setIsResizing(false)
     
@@ -215,8 +223,13 @@ export default function HomeMap() {
       
       <div className="home-sidebar" style={{ width: sidebarWidth }}>
         <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
-        <h2>I Tuoi Cammini</h2>
-        
+        <div className="sidebar-header">
+          <h2>I Tuoi Cammini</h2>
+          <button className="sidebar-toggle-btn" onClick={toggleSidebarMode}>
+            {sidebarMode === 'wide' ? '🔽 Compatto' : '🔼 Larga'}
+          </button>
+        </div>
+
         <div className="filter-container" style={{ marginBottom: '1rem', position: 'relative' }}>
           <input 
             type="text" 

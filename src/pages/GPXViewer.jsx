@@ -28,6 +28,7 @@ export default function GPXViewer() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(null)
   const [sidebarWidth, setSidebarWidth] = useState(350)
+  const [sidebarMode, setSidebarMode] = useState('normal')
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
@@ -42,6 +43,13 @@ export default function GPXViewer() {
   const handleResizeStart = (e) => {
     e.preventDefault()
     setIsResizing(true)
+    setSidebarMode('custom')
+  }
+
+  const toggleSidebarMode = () => {
+    const newMode = sidebarMode === 'wide' ? 'normal' : 'wide'
+    setSidebarMode(newMode)
+    setSidebarWidth(newMode === 'wide' ? 520 : 350)
   }
 
   useEffect(() => {
@@ -767,6 +775,12 @@ export default function GPXViewer() {
       {!isFullscreen && (
         <div className="sidebar" style={{ width: sidebarWidth }}>
           <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+          <div className="sidebar-header">
+            <h3>Carica GPX</h3>
+            <button className="sidebar-toggle-btn" onClick={toggleSidebarMode}>
+              {sidebarMode === 'wide' ? '🔽 Compatto' : '🔼 Larga'}
+            </button>
+          </div>
           <FileUpload 
             onFileLoad={handleFileLoad} 
             onMultipleFileLoad={handleMultipleFileLoad}
