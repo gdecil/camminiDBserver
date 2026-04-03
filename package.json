@@ -3,15 +3,12 @@
   "version": "1.0.0",
   "description": "App per visualizzare tracce GPX e pianificare itinerari escursionistici",
   "type": "module",
-  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.cjs",
-    "start": "concurrently \"npm run server\" \"npm run dev\"",
-    "electron": "electron .",
-    "dist": "vite build && electron-builder"
+    "start": "concurrently \"npm run server\" \"npm run dev\""
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -31,28 +28,6 @@
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
-    "electron": "^41.1.0",
-    "electron-builder": "^26.8.1",
     "vite": "^7.0.0"
-  },
-  "build": {
-    "appId": "com.cammini.app",
-    "productName": "Cammini",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": "portable",
-      "icon": "electron/icon.ico"
-    },
-    "portable": {
-      "artifactName": "Cammini-${version}.exe"
-    }
   }
 }
