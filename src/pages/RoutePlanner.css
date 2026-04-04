@@ -2,6 +2,7 @@
   display: flex;
   gap: 1rem;
   height: calc(100vh - 80px);
+  overflow: hidden;
 }
 
 .route-planner .map-section {
@@ -25,8 +26,29 @@
   min-width: 300px;
   max-width: 520px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
   box-sizing: border-box;
+  max-height: calc(100vh - 120px);
+}
+
+/* Custom scrollbar styling */
+.route-planner .sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.route-planner .sidebar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.route-planner .sidebar::-webkit-scrollbar-thumb {
+  background: #3498db;
+  border-radius: 4px;
+}
+
+.route-planner .sidebar::-webkit-scrollbar-thumb:hover {
+  background: #2980b9;
 }
 
 .sidebar-header {
@@ -510,6 +532,50 @@
 
 .routes-list {
   overflow-y: auto;
+  max-height: 300px;
+}
+
+/* Custom scrollbar for routes list */
+.routes-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.routes-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.routes-list::-webkit-scrollbar-thumb {
+  background: #3498db;
+  border-radius: 3px;
+}
+
+.routes-list::-webkit-scrollbar-thumb:hover {
+  background: #2980b9;
+}
+
+.saved-routes-content {
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+/* Custom scrollbar for saved routes content */
+.saved-routes-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.saved-routes-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.saved-routes-content::-webkit-scrollbar-thumb {
+  background: #3498db;
+  border-radius: 4px;
+}
+
+.saved-routes-content::-webkit-scrollbar-thumb:hover {
+  background: #2980b9;
 }
 
 .route-item {
@@ -619,6 +685,7 @@
   padding: 1rem;
   border-left: 1px solid #dee2e6;
   position: relative;
+  max-height: calc(100vh - 120px);
 }
 
 /* Resize handle for sidebar */
@@ -834,6 +901,27 @@
 .collapsible-section .section-content {
   padding: 1rem;
   padding-bottom: 1.5rem;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+/* Scrollbar per section content */
+.collapsible-section .section-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.collapsible-section .section-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.collapsible-section .section-content::-webkit-scrollbar-thumb {
+  background: #3498db;
+  border-radius: 4px;
+}
+
+.collapsible-section .section-content::-webkit-scrollbar-thumb:hover {
+  background: #2980b9;
 }
 
 /* Section resize handle */

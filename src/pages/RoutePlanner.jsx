@@ -197,7 +197,6 @@ export default function RoutePlanner() {
   const [showAllPois, setShowAllPois] = useState(true) // Show all categories
   const [poiSortBy, setPoiSortBy] = useState('distance') // 'distance', 'name', 'category'
   const [poiGroupedByCategory, setPoiGroupedByCategory] = useState({}) // Grouped POIs
-  const [savedRoutesHeight, setSavedRoutesHeight] = useState(null) // Height for saved routes section
   const [routeFilterActive, setRouteFilterActive] = useState(!!routeIdParam)
   
   // Geocoding state
@@ -867,8 +866,8 @@ export default function RoutePlanner() {
           {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button><button className="google-maps-btn primary" onClick={openGoogleMyMaps} title="Scarica KML e importa in Google My Maps">🗺️ Scarica per Google My Maps</button></div>}</div>}
         </CollapsibleSection>
 
-        {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${routeFilterActive && routeIdParam ? 1 : savedRoutes.length})`} defaultOpen={false} resizable onResize={setSavedRoutesHeight}>
-          <div className="saved-routes-content" style={{ height: savedRoutesHeight || 'auto', maxHeight: 'none', overflowY: 'auto' }}>
+        {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${routeFilterActive && routeIdParam ? 1 : savedRoutes.length})`} defaultOpen={false}>
+          <div className="saved-routes-content">
           <div className="saved-routes-header">
             {routeFilterActive && routeIdParam && (
               <div className="filter-indicator" style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#e3f2fd', borderRadius: '4px', fontSize: '0.85rem' }}>
