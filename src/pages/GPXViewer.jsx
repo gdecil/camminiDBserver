@@ -34,6 +34,7 @@ export default function GPXViewer() {
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
   const trackIdParam = searchParams.get('trackId')
+  const [filterText, setFilterText] = useState('')
   
   // Multiple tracks state
   const [tracks, setTracks] = useState([]) // Array of {id, name, coordinates, elevation, color, visible, gpxContent}
@@ -927,9 +928,26 @@ export default function GPXViewer() {
             />
           )}
           
+          <div className="filter-container" style={{ marginBottom: '1rem', position: 'relative' }}>
+            <input 
+              type="text" 
+              placeholder="🔍 Cerca tra le tracce..." 
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              style={{ width: '100%', padding: '8px 30px 8px 10px', borderRadius: '4px', border: '1px solid #ddd' }}
+            />
+            {filterText && (
+              <button 
+                onClick={() => setFilterText('')}
+                style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#888' }}
+              >✕</button>
+            )}
+          </div>
+          
           <SavedTracks
             tracks={filteredTracks}
             filterId={trackIdParam}
+            filterText={filterText}
             onLoad={(id) => {
               handleLoadTrack(id)
               const track = savedTracks[id]

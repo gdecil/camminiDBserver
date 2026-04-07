@@ -31,14 +31,16 @@ const downloadGPX = (gpx, filename) => {
   URL.revokeObjectURL(url)
 }
 
-export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, onRename, hasTrack }) {
+export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, onRename, hasTrack, filterText = '' }) {
   const [sortBy, setSortBy] = useState('date') // 'name' or 'date'
   const [sortOrder, setSortOrder] = useState('desc') // 'asc' or 'desc'
   const [editingId, setEditingId] = useState(null)
   const [newName, setNewName] = useState('')
   
-  // Convert tracks object to array and sort
-  const trackArray = Object.values(tracks)
+  // Convert tracks object to array, filter, and sort
+  const trackArray = Object.values(tracks).filter(track => 
+    track.name.toLowerCase().includes(filterText.toLowerCase())
+  )
   
   const sortedTracks = [...trackArray].sort((a, b) => {
     let comparison = 0
@@ -80,7 +82,7 @@ export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, o
 
   return (
     <div className="saved-tracks-container">
-      <h3>📁 Tracce Salvate ({Object.keys(tracks).length})</h3>
+      <h3>📁 Tracce Salvate ({trackArray.length})</h3>
       
       <div className="tracks-actions">
         <button 

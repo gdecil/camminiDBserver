@@ -180,6 +180,7 @@ export default function RoutePlanner() {
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
   const [largeLabels, setLargeLabels] = useState(false)
   const routeIdParam = searchParams.get('routeId')
+  const [filterText, setFilterText] = useState('')
   const [routingService, setRoutingService] = useState('osrm')
   const [isCalculating, setIsCalculating] = useState(false)
   const [graphhopperApiKey, setGraphhopperApiKey] = useState('')
@@ -275,6 +276,12 @@ export default function RoutePlanner() {
     // Apply filter if routeIdParam is present
     if (routeFilterActive && routeIdParam) {
       filtered = filtered.filter(route => route.id === routeIdParam)
+    }
+    // Apply text filter
+    if (filterText) {
+      filtered = filtered.filter(route => 
+        route.name.toLowerCase().includes(filterText.toLowerCase())
+      )
     }
     const sorted = filtered
     sorted.sort((a, b) => {
@@ -866,7 +873,7 @@ export default function RoutePlanner() {
           {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button><button className="google-maps-btn primary" onClick={openGoogleMyMaps} title="Scarica KML e importa in Google My Maps">🗺️ Scarica per Google My Maps</button></div>}</div>}
         </CollapsibleSection>
 
-        {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${routeFilterActive && routeIdParam ? 1 : savedRoutes.length})`} defaultOpen={false}>
+        {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${getSortedRoutes().length})`} defaultOpen={false}>
           <div className="saved-routes-content">
           <div className="saved-routes-header">
             {routeFilterActive && routeIdParam && (
@@ -875,6 +882,21 @@ export default function RoutePlanner() {
                 <button className="small-btn" style={{ padding: '2px 6px', fontSize: '0.75rem' }} onClick={() => setRouteFilterActive(false)}>✕ Rimuovi filtro</button>
               </div>
             )}
+            <div className="filter-container" style={{ marginBottom: '8px', position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder="🔍 Cerca tra gli itinerari..." 
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                style={{ width: '100%', padding: '8px 30px 8px 10px', borderRadius: '4px', border: '1px solid #ddd' }}
+              />
+              {filterText && (
+                <button 
+                  onClick={() => setFilterText('')}
+                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#888' }}
+                >✕</button>
+              )}
+            </div>
             <div className="sort-buttons"><button className={`sort-btn ${sortBy === 'name' ? 'active' : ''}`} onClick={() => toggleSort('name')}>📝 A-Z {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}</button><button className={`sort-btn ${sortBy === 'date' ? 'active' : ''}`} onClick={() => toggleSort('date')}>📅 Data {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}</button></div></div>
           <div className="routes-list">
             {getSortedRoutes().map(route => { const isLoaded = loadedRouteIds.includes(route.id); return (<div key={route.id} className={`route-item ${isLoaded ? 'loaded' : ''}`}><div className="route-info"><strong>{isLoaded ? '✅ ' : ''}{route.name}</strong><small>{route.distance ? `${route.distance} km` : ''}{route.elevation ? ' 📊' : ''} • {new Date(route.createdAt || route.created_at).toLocaleDateString()}</small></div><div className="route-actions"><button className={`small-btn ${isLoaded ? 'loaded-btn' : ''}`} onClick={() => toggleLoadRoute(route)}>{isLoaded ? '✓ Sovrapposto' : '+ Aggiungi'}</button><button className="small-btn edit-btn" onClick={() => handleLoadRoute(route)}>✏️ Modifica</button><button className="small-btn" onClick={() => handleExportRoute(route)}>📥</button><button className="small-btn danger" onClick={() => handleDeleteRoute(route)}>🗑️</button></div></div>) })}
