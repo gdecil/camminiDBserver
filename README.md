@@ -1,4 +1,60 @@
-# 🏔️ Cammini
+# 🏔️ Cammini DB Server
+
+Versione del progetto con backend PostgreSQL locale (fase 1) e strumenti per futura migrazione cloud.
+
+## Configurazione database (fase 1 locale)
+
+1. Installa PostgreSQL locale.
+2. Crea un database (es. `cammini_local`).
+3. Imposta variabili ambiente:
+
+```bash
+set DATABASE_URL=postgresql://postgres:password@localhost:5432/cammini_local
+set PGSSLMODE=disable
+```
+
+4. Avvia backend/frontend:
+
+```bash
+npm install
+npm start
+```
+
+## Migrazione da SQLite (`gpx_viewer.db`) a PostgreSQL
+
+```bash
+npm run db:migrate-sqlite
+```
+
+Puoi specificare un file SQLite alternativo:
+
+```bash
+set SQLITE_PATH=C:\path\to\gpx_viewer.db
+npm run db:migrate-sqlite
+```
+
+## Portabilità tra locazioni/provider
+
+- Crea dump dal DB corrente:
+
+```bash
+npm run db:dump -- C:\backup\cammini.dump
+```
+
+- Ripristina su nuova destinazione (`DATABASE_URL` puntata al target):
+
+```bash
+npm run db:restore -- C:\backup\cammini.dump
+```
+
+- Migrazione diretta source -> target:
+
+```bash
+set TARGET_DATABASE_URL=postgresql://user:pass@host:5432/cammini_target
+npm run db:migrate-target
+```
+
+OneDrive/Google Drive/Dropbox sono consigliati per archiviare i dump (`.dump`), non per ospitare il DB live concorrente.
 
 **App per visualizzare tracce GPX e pianificare itinerari escursionistici**
 
