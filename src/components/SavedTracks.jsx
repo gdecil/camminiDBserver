@@ -31,7 +31,7 @@ const downloadGPX = (gpx, filename) => {
   URL.revokeObjectURL(url)
 }
 
-export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, onRename, hasTrack, filterText = '' }) {
+export default function SavedTracks({ tracks, onLoad, onAdd, onDelete, onSaveCurrent, onRename, hasTrack, filterText = '' }) {
   const [sortBy, setSortBy] = useState('date') // 'name' or 'date'
   const [sortOrder, setSortOrder] = useState('desc') // 'asc' or 'desc'
   const [editingId, setEditingId] = useState(null)
@@ -156,6 +156,13 @@ export default function SavedTracks({ tracks, onLoad, onDelete, onSaveCurrent, o
                       onClick={() => onLoad(track.id)}
                     >
                       Carica
+                    </button>
+                    <button
+                      className="small-btn add-btn"
+                      onClick={() => onAdd(track.id)}
+                      title="Aggiungi alla mappa senza rimuovere le altre tracce"
+                    >
+                      Aggiungi
                     </button>
                     <button 
                       className="small-btn"

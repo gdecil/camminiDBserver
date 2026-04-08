@@ -564,6 +564,52 @@ export default function GPXViewer() {
     }
   }
 
+  const handleAddTrack = (id) => {
+    const track = savedTracks[id]
+    if (!track || !track.coordinates) return
+
+    const coordinates = Array.isArray(track.coordinates) && track.coordinates.length > 0 && Array.isArray(track.coordinates[0])
+      ? track.coordinates
+      : null
+    if (!coordinates) {
+      showMessage(`Errore nel caricamento traccia "${track.name}"`, 'error')
+      return
+    }
+
+    const overlayId = `saved-${id}`
+    let wasDuplicate = false
+    setTracks(prev => {
+      if (prev.some(t => t.id === overlayId || t.sourceSavedId === id)) {
+        wasDuplicate = true
+        return prev
+      }
+
+      const trackData = buildTrackData(coordinates, track.elevation, track.gpxContent)
+      return [
+        ...prev,
+        {
+          id: overlayId,
+          sourceSavedId: id,
+          name: track.name,
+          fileName: track.name.endsWith('.gpx') ? track.name : `${track.name}.gpx`,
+          coordinates,
+          elevation: trackData.elevation,
+          gpxContent: trackData.gpxContent || generateGPXFromElevations(coordinates, []),
+          color: TRACK_COLORS[prev.length % TRACK_COLORS.length],
+          visible: true
+        }
+      ]
+    })
+
+    if (wasDuplicate) {
+      showMessage(`La traccia "${track.name}" e' gia presente sulla mappa`, 'info')
+      return
+    }
+
+    setActiveTrackId(overlayId)
+    showMessage(`Traccia "${track.name}" aggiunta alla mappa`, 'success')
+  }
+
   const handleDeleteTrack = async (id) => {
     const track = savedTracks[id]
     if (!track) return
@@ -1102,6 +1148,7 @@ export default function GPXViewer() {
                 setPhotoGalleryKey(k => k + 1)
               }
             }}
+            onAdd={handleAddTrack}
             onDelete={handleDeleteTrack}
             onRename={handleRenameTrack}
             onSaveCurrent={handleSaveCurrent}

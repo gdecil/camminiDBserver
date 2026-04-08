@@ -87,6 +87,16 @@
   background: #ecf0f1;
 }
 
+.small-btn.add-btn {
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.small-btn.add-btn:hover {
+  background: #3498db;
+  color: white;
+}
+
 .small-btn.danger {
   color: #e74c3c;
   border-color: #e74c3c;
