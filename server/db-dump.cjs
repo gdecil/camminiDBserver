@@ -9,7 +9,7 @@ if (!databaseUrl) {
     throw new Error('DATABASE_URL mancante');
 }
 
-const pgDumpPath = 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe';
+const pgDumpPath = 'd:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe';
 const result = spawnSync(pgDumpPath, ['--format=custom', '--file', outputFile, databaseUrl], {
   stdio: 'inherit'
 });
