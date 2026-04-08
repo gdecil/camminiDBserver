@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { spawnSync } = require('child_process');
 const path = require('path');
 
@@ -8,9 +9,9 @@ if (!databaseUrl) {
     throw new Error('DATABASE_URL mancante');
 }
 
-const result = spawnSync('pg_dump', ['--format=custom', '--file', outputFile, databaseUrl], {
-    stdio: 'inherit',
-    shell: true
+const pgDumpPath = 'C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe';
+const result = spawnSync(pgDumpPath, ['--format=custom', '--file', outputFile, databaseUrl], {
+  stdio: 'inherit'
 });
 
 if (result.status !== 0) {
