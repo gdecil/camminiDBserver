@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { spawnSync } = require('child_process');
 
 const dumpFile = process.argv[2];
@@ -10,9 +11,9 @@ if (!dumpFile) {
     throw new Error('Specifica il file dump: npm run db:restore -- <file.dump>');
 }
 
-const result = spawnSync('pg_restore', ['--clean', '--if-exists', '--no-owner', '--no-privileges', '--dbname', databaseUrl, dumpFile], {
-    stdio: 'inherit',
-    shell: true
+const pgRestorePath = 'd:\\Program Files\\PostgreSQL\\18\\bin\\pg_restore.exe';
+const result = spawnSync(pgRestorePath, ['--dbname', databaseUrl, dumpFile], {
+  stdio: 'inherit'
 });
 
 if (result.status !== 0) {
