@@ -21,8 +21,10 @@ const TRACK_COLORS = [
 export default function GPXViewer() {
   const [trackCoordinates, setTrackCoordinates] = useState([])
   const [gpxContent, setGpxContent] = useState(null)
+  const [currentElevations, setCurrentElevations] = useState(null)
   const [savedTracks, setSavedTracks] = useState({})
   const [message, setMessage] = useState(null)
+  const [elevationStatus, setElevationStatus] = useState(null)
   const [currentLayer, setCurrentLayer] = useState('OpenStreetMap')
   const [isProfileDetached, setIsProfileDetached] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -72,29 +74,132 @@ export default function GPXViewer() {
     }
   }, [isResizing])
 
-  // Helper function moved before usage
-  const resampleElevations = (elevations, targetLength) => {
-    if (!elevations || elevations.length === 0 || targetLength === 0) return Array(targetLength).fill(0)
-    if (elevations.length === targetLength) return elevations
-    
+  const interpolateElevationsToLength = (elevations, targetLength) => {
+    if (!Array.isArray(elevations) || elevations.length === 0 || targetLength <= 0) return []
+    if (elevations.length === targetLength) return elevations.map(v => Number(v))
+    if (targetLength === 1) return [Number(elevations[0] ?? 0)]
+    if (elevations.length === 1) return Array(targetLength).fill(Number(elevations[0] ?? 0))
+
     const result = []
     const srcLen = elevations.length
-    
+
     for (let i = 0; i < targetLength; i++) {
       const srcIndex = (i / (targetLength - 1)) * (srcLen - 1)
       const lowerIndex = Math.floor(srcIndex)
       const upperIndex = Math.min(lowerIndex + 1, srcLen - 1)
       const fraction = srcIndex - lowerIndex
-      
+
       if (fraction === 0) {
-        result.push(elevations[lowerIndex])
+        result.push(Number(elevations[lowerIndex] ?? 0))
       } else {
-        const lower = elevations[lowerIndex] ?? 0
-        const upper = elevations[upperIndex] ?? 0
+        const lower = Number(elevations[lowerIndex] ?? 0)
+        const upper = Number(elevations[upperIndex] ?? 0)
         result.push(lower + (upper - lower) * fraction)
       }
     }
     return result
+  }
+
+  const areElevationsValidForTrack = (elevations, coordinatesLength) => {
+    if (!Array.isArray(elevations) || coordinatesLength <= 0) return false
+    if (elevations.length !== coordinatesLength) return false
+
+    const numeric = elevations.filter(v => Number.isFinite(v))
+    if (numeric.length === 0) return false
+
+    // Treat all-zero traces as missing elevation (common for KML without Z values).
+    return numeric.some(v => Math.abs(v) > 0.001)
+  }
+
+  const normalizeElevationSeries = (values) => {
+    if (!Array.isArray(values) || values.length === 0) return []
+    const normalized = values.map(v => (Number.isFinite(v) ? Number(v) : null))
+    const firstValid = normalized.find(v => v !== null)
+    if (firstValid === undefined) return []
+
+    // Fill holes using nearest valid values before/after.
+    for (let i = 0; i < normalized.length; i++) {
+      if (normalized[i] !== null) continue
+      let prev = i - 1
+      while (prev >= 0 && normalized[prev] === null) prev--
+      let next = i + 1
+      while (next < normalized.length && normalized[next] === null) next++
+      if (prev >= 0 && next < normalized.length) normalized[i] = (normalized[prev] + normalized[next]) / 2
+      else if (prev >= 0) normalized[i] = normalized[prev]
+      else if (next < normalized.length) normalized[i] = normalized[next]
+      else normalized[i] = firstValid
+    }
+    return normalized
+  }
+
+  const buildCoordinateSample = (coordinates, maxSamples = 100) => {
+    if (!Array.isArray(coordinates) || coordinates.length === 0) return []
+    if (coordinates.length <= maxSamples) return coordinates
+
+    const step = Math.max(1, Math.ceil(coordinates.length / maxSamples))
+    const sampledCoords = []
+    for (let i = 0; i < coordinates.length; i += step) sampledCoords.push(coordinates[i])
+    if (sampledCoords[sampledCoords.length - 1] !== coordinates[coordinates.length - 1]) {
+      sampledCoords.push(coordinates[coordinates.length - 1])
+    }
+    return sampledCoords
+  }
+
+  const regenerateElevationsFromApi = async (coordinates) => {
+    if (!Array.isArray(coordinates) || coordinates.length === 0) return []
+
+    const sampledCoords = buildCoordinateSample(coordinates, 100)
+    const response = await fetch(`${API_URL}/elevation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations: sampledCoords.map(([lat, lng]) => ({ lat, lng })) })
+    })
+    if (!response.ok) throw new Error(`Elevation API error: ${response.status}`)
+
+    const data = await response.json()
+    const sampledElevations = normalizeElevationSeries(
+      (data.results || []).map(result => Number(result?.elevation))
+    )
+    if (sampledElevations.length < 2) throw new Error('Dati elevazione insufficienti')
+
+    return interpolateElevationsToLength(sampledElevations, coordinates.length).map(v => Number(v.toFixed(1)))
+  }
+
+  const ensureElevations = async (coordinates, elevations) => {
+    if (areElevationsValidForTrack(elevations, coordinates.length)) {
+      return { elevations, regenerated: false }
+    }
+    const regenerated = await regenerateElevationsFromApi(coordinates)
+    return { elevations: regenerated, regenerated: true }
+  }
+
+  const syncCurrentElevations = (elevations, coordinatesLength = 0) => {
+    const normalized = areElevationsValidForTrack(elevations, coordinatesLength) ? elevations : null
+    setCurrentElevations(normalized)
+    window._currentElevations = normalized
+    return normalized
+  }
+
+  const showElevationStatus = (text, type = 'info') => {
+    setElevationStatus({ text, type })
+    setTimeout(() => setElevationStatus(null), 7000)
+  }
+
+  const buildTrackData = (coordinates, elevations, sourceGpxContent) => {
+    if (areElevationsValidForTrack(elevations, coordinates.length)) {
+      const numericElevations = elevations.map(v => Number(v))
+      return {
+        elevation: numericElevations,
+        gpxContent: generateGPXFromElevations(coordinates, numericElevations),
+        hasRealElevation: true
+      }
+    }
+
+    return {
+      elevation: null,
+      gpxContent: sourceGpxContent || null,
+      hasRealElevation: false
+    }
   }
 
   useEffect(() => {
@@ -165,6 +270,10 @@ export default function GPXViewer() {
           // Resample elevation if needed
           if (elevationData && Array.isArray(elevationData) && elevationData.length !== coordinates.length) {
             elevationData = resampleElevations(elevationData, coordinates.length)
+          }
+
+          if (!areElevationsValidForTrack(elevationData, coordinates.length)) {
+            elevationData = null
           }
           
           console.log(`Track "${track.name}": ${coordinates.length} coordinates, ${elevationData ? elevationData.length : 0} elevations`)
@@ -261,43 +370,83 @@ export default function GPXViewer() {
     return allCoords
   }
 
-  const handleFileLoad = (gpxContent) => {
+  const handleFileLoad = async (gpxContent) => {
     try {
       const { coordinates: coords, elevations } = parseGPX(gpxContent)
       if (coords.length === 0) {
         showMessage('Nessuna traccia trovata nel file GPX', 'error')
         return
       }
+
+      let finalElevations = elevations
+      showElevationStatus('Rigenerazione elevazioni in corso...', 'info')
+      try {
+        const result = await ensureElevations(coords, elevations)
+        finalElevations = result.elevations
+        if (result.regenerated) {
+          showMessage('Elevazioni mancanti rigenerate automaticamente', 'success')
+          showElevationStatus('Elevazioni rigenerate automaticamente.', 'success')
+        } else {
+          showElevationStatus('Quote originali valide rilevate: nessuna rigenerazione necessaria.', 'info')
+        }
+      } catch (regenError) {
+        console.warn('Elevation regeneration failed:', regenError.message)
+        showMessage('Impossibile rigenerare elevazioni, caricata traccia senza profilo reale', 'warning')
+        showElevationStatus('Rigenerazione elevazioni non riuscita: uso dati originali disponibili.', 'warning')
+      }
+
+      const trackData = buildTrackData(coords, finalElevations, gpxContent)
       setTrackCoordinates(coords)
-      setGpxContent(gpxContent)
-      window._currentElevations = elevations
-      showMessage('File GPX caricato con successo', 'success')
+      setGpxContent(trackData.gpxContent)
+      syncCurrentElevations(trackData.elevation, coords.length)
+
+      if (trackData.hasRealElevation) {
+        showMessage('File GPX caricato con successo', 'success')
+      } else {
+        showMessage('File GPX caricato senza profilo altimetrico valido', 'warning')
+      }
     } catch (error) {
       showMessage('Errore durante il parsing del file GPX', 'error')
+      setElevationStatus(null)
     }
   }
 
   // Handle multiple file upload
-  const handleMultipleFileLoad = (fileResults) => {
+  const handleMultipleFileLoad = async (fileResults) => {
     console.log('handleMultipleFileLoad called with', fileResults.length, 'files')
-    
-    const newTracks = fileResults.map((result, index) => {
+    let regeneratedCount = 0
+    let failedRegenerationCount = 0
+    showElevationStatus('Verifica/rigenerazione elevazioni in corso...', 'info')
+
+    const maybeTracks = await Promise.all(fileResults.map(async (result, index) => {
       try {
         const { coordinates, elevations } = parseGPX(result.content)
         if (coordinates.length === 0) {
           showMessage(`Nessuna traccia trovata in ${result.name}`, 'warning')
           return null
         }
-        
+
+        let finalElevations = elevations
+        try {
+          const elevationResult = await ensureElevations(coordinates, elevations)
+          finalElevations = elevationResult.elevations
+          if (elevationResult.regenerated) regeneratedCount++
+        } catch (regenError) {
+          console.warn(`Elevation regeneration failed for ${result.name}:`, regenError.message)
+          failedRegenerationCount++
+        }
+
         const trackName = extractGPXName(result.content) || result.name.replace('.gpx', '')
-        
+
+        const trackData = buildTrackData(coordinates, finalElevations, result.content)
+
         return {
           id: Date.now() + index,
           name: trackName,
           fileName: result.name,
           coordinates,
-          elevation: elevations,
-          gpxContent: result.content,
+          elevation: trackData.elevation,
+          gpxContent: trackData.gpxContent,
           color: TRACK_COLORS[(index) % TRACK_COLORS.length],
           visible: true
         }
@@ -305,7 +454,8 @@ export default function GPXViewer() {
         showMessage(`Errore parsing ${result.name}`, 'error')
         return null
       }
-    }).filter(t => t !== null)
+    }))
+    const newTracks = maybeTracks.filter(t => t !== null)
     
     console.log('Created', newTracks.length, 'new tracks')
     
@@ -320,8 +470,17 @@ export default function GPXViewer() {
       if (activeTrackId === null && newTracks.length > 0) {
         setActiveTrackId(newTracks[0].id)
       }
-      
+
+      if (failedRegenerationCount > 0) {
+        showElevationStatus(`Rigenerazione parziale: ${regeneratedCount} ok, ${failedRegenerationCount} fallback.`, 'warning')
+      } else if (regeneratedCount > 0) {
+        showElevationStatus(`Rigenerazione completata per ${regeneratedCount} traccia${regeneratedCount > 1 ? 'e' : ''}.`, 'success')
+      } else {
+        showElevationStatus('Tutte le tracce avevano quote valide.', 'info')
+      }
       showMessage(`${newTracks.length} traccia${newTracks.length > 1 ? 'e' : ''} caricate`, 'success')
+    } else {
+      setElevationStatus(null)
     }
   }
 
@@ -340,7 +499,7 @@ export default function GPXViewer() {
     const name = prompt('Nome traccia:', `Traccia_${new Date().toISOString().slice(0, 10)}`)
     if (!name) return
 
-    const elevations = window._currentElevations || null
+    const elevations = areElevationsValidForTrack(currentElevations, trackCoordinates.length) ? currentElevations : null
     
     try {
       const res = await fetch(`${API_URL}/tracks`, {
@@ -358,19 +517,6 @@ export default function GPXViewer() {
     } catch (error) {
       showMessage('Errore nel salvare la traccia: ' + error.message, 'error')
     }
-  }
-
-  const generateGPXFromCoordinates = (coordinates) => {
-    let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1">\n<trk>\n<trkseg>\n'
-    const baseElevation = 100 + Math.random() * 200
-    
-    coordinates.forEach((coord, i) => {
-      const elevation = baseElevation + Math.sin(i / 10) * 50 + Math.random() * 20
-      gpx += `    <trkpt lat="${coord[0]}" lon="${coord[1]}">\n      <ele>${elevation.toFixed(1)}</ele>\n    </trkpt>\n`
-    })
-    
-    gpx += '</trkseg>\n</trk>\n</gpx>'
-    return gpx
   }
 
   const generateGPXFromElevations = (coordinates, elevations) => {
@@ -401,25 +547,20 @@ export default function GPXViewer() {
       setTrackCoordinates(coordinates)
       
       if (coordinates.length > 0) {
-        // Verify elevation is valid array with same length as coordinates
+        // Verify elevation quality before building profile data
         let elevationData = null
-        if (track.elevation && Array.isArray(track.elevation) && track.elevation.length === coordinates.length) {
+        if (areElevationsValidForTrack(track.elevation, coordinates.length)) {
           elevationData = track.elevation
-          // Store elevations for potential reuse
-          window._currentElevations = elevationData
         }
-        
-        if (elevationData) {
-          const realGPX = generateGPXFromElevations(coordinates, elevationData)
-          setGpxContent(realGPX)
-        } else {
-          // If elevation doesn't match coordinates, generate simulated data
-          const simulatedGPX = generateGPXFromCoordinates(coordinates)
-          setGpxContent(simulatedGPX)
+
+        const trackData = buildTrackData(coordinates, elevationData, track.gpxContent)
+        syncCurrentElevations(trackData.elevation, coordinates.length)
+        setGpxContent(trackData.gpxContent)
+        if (!trackData.hasRealElevation) {
           console.warn(`Elevation data mismatch: ${track.elevation?.length || 0} elevations vs ${coordinates.length} coordinates for track "${track.name}"`)
         }
       }
-      showMessage(`Traccia "${track.name}" caricata${track.elevation && Array.isArray(track.elevation) && track.elevation.length === coordinates.length ? ' con profilo altimetrico' : ' (profilo simulato)'}`, 'info')
+      showMessage(`Traccia "${track.name}" caricata${areElevationsValidForTrack(track.elevation, coordinates.length) ? ' con profilo altimetrico' : ' senza elevazioni disponibili'}`, 'info')
     }
   }
 
@@ -789,6 +930,11 @@ export default function GPXViewer() {
             onFileLoad={handleFileLoad} 
             onMultipleFileLoad={handleMultipleFileLoad}
           />
+          {elevationStatus && (
+            <div className={`message ${elevationStatus.type}`}>
+              {elevationStatus.text}
+            </div>
+          )}
           
           {/* Multiple tracks list */}
           {tracks.length > 0 && (
