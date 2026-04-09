@@ -37,9 +37,10 @@ export default function GPXViewer() {
   const [searchParams] = useSearchParams()
   const trackIdParam = searchParams.get('trackId')
   const [filterText, setFilterText] = useState('')
+  const [currentWaypoints, setCurrentWaypoints] = useState([])
   
   // Multiple tracks state
-  const [tracks, setTracks] = useState([]) // Array of {id, name, coordinates, elevation, color, visible, gpxContent}
+  const [tracks, setTracks] = useState([]) // Array of {id, name, coordinates, elevation, color, visible, gpxContent, waypoints}
   const [activeTrackId, setActiveTrackId] = useState(null) // Currently selected track for profile view
   const [trackFilterActive, setTrackFilterActive] = useState(!!trackIdParam)
 
@@ -278,10 +279,24 @@ export default function GPXViewer() {
           
           console.log(`Track "${track.name}": ${coordinates.length} coordinates, ${elevationData ? elevationData.length : 0} elevations`)
           
+          // Parse waypoints
+          let waypoints = []
+          try {
+            if (typeof track.waypoints === 'string') {
+              waypoints = JSON.parse(track.waypoints) || []
+            } else if (Array.isArray(track.waypoints)) {
+              waypoints = track.waypoints
+            }
+          } catch (e) {
+            console.warn('Error parsing waypoints for track:', track.name, e)
+            waypoints = []
+          }
+          
           tracksObj[track.id] = {
             ...track,
             coordinates,
             elevation: elevationData,
+            waypoints,
             createdAt: track.created_at
           }
         } catch (parseError) {
@@ -304,10 +319,11 @@ export default function GPXViewer() {
     const xmlDoc = parser.parseFromString(gpxContent, 'text/xml')
     const coordinates = []
     const elevations = []
+    const waypoints = []
 
     const tracks = xmlDoc.getElementsByTagName('trk')
     const routes = xmlDoc.getElementsByTagName('rte')
-    const waypoints = xmlDoc.getElementsByTagName('wpt')
+    const waypointElements = xmlDoc.getElementsByTagName('wpt')
 
     for (let i = 0; i < tracks.length; i++) {
       const trackSegments = tracks[i].getElementsByTagName('trkseg')
@@ -342,15 +358,19 @@ export default function GPXViewer() {
       }
     }
 
-    for (let i = 0; i < waypoints.length; i++) {
-      const lat = parseFloat(waypoints[i].getAttribute('lat'))
-      const lon = parseFloat(waypoints[i].getAttribute('lon'))
+    // Parse waypoints separately - don't add to coordinates
+    for (let i = 0; i < waypointElements.length; i++) {
+      const lat = parseFloat(waypointElements[i].getAttribute('lat'))
+      const lon = parseFloat(waypointElements[i].getAttribute('lon'))
+      const nameEl = waypointElements[i].getElementsByTagName('name')[0]
+      const name = nameEl ? nameEl.textContent : `Waypoint ${i + 1}`
+      
       if (!isNaN(lat) && !isNaN(lon)) {
-        coordinates.push([lat, lon])
+        waypoints.push({ lat, lon, name })
       }
     }
 
-    return { coordinates, elevations }
+    return { coordinates, elevations, waypoints }
   }
 
   // Extract name from GPX content
@@ -372,7 +392,7 @@ export default function GPXViewer() {
 
   const handleFileLoad = async (gpxContent) => {
     try {
-      const { coordinates: coords, elevations } = parseGPX(gpxContent)
+      const { coordinates: coords, elevations, waypoints } = parseGPX(gpxContent)
       if (coords.length === 0) {
         showMessage('Nessuna traccia trovata nel file GPX', 'error')
         return
@@ -399,6 +419,7 @@ export default function GPXViewer() {
       setTrackCoordinates(coords)
       setGpxContent(trackData.gpxContent)
       syncCurrentElevations(trackData.elevation, coords.length)
+      setCurrentWaypoints(waypoints)
 
       if (trackData.hasRealElevation) {
         showMessage('File GPX caricato con successo', 'success')
@@ -420,7 +441,7 @@ export default function GPXViewer() {
 
     const maybeTracks = await Promise.all(fileResults.map(async (result, index) => {
       try {
-        const { coordinates, elevations } = parseGPX(result.content)
+        const { coordinates, elevations, waypoints } = parseGPX(result.content)
         if (coordinates.length === 0) {
           showMessage(`Nessuna traccia trovata in ${result.name}`, 'warning')
           return null
@@ -447,6 +468,7 @@ export default function GPXViewer() {
           coordinates,
           elevation: trackData.elevation,
           gpxContent: trackData.gpxContent,
+          waypoints: waypoints || [],
           color: TRACK_COLORS[(index) % TRACK_COLORS.length],
           visible: true
         }
@@ -505,7 +527,7 @@ export default function GPXViewer() {
       const res = await fetch(`${API_URL}/tracks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, coordinates: trackCoordinates, elevation: elevations })
+        body: JSON.stringify({ name, coordinates: trackCoordinates, elevation: elevations, waypoints: currentWaypoints })
       })
       if (res.ok) {
         showMessage(`Traccia "${name}" salvata`, 'success')
@@ -545,6 +567,19 @@ export default function GPXViewer() {
       }
       
       setTrackCoordinates(coordinates)
+      // Parse waypoints - could be string or array
+      let waypoints = []
+      try {
+        if (typeof track.waypoints === 'string') {
+          waypoints = JSON.parse(track.waypoints) || []
+        } else if (Array.isArray(track.waypoints)) {
+          waypoints = track.waypoints
+        }
+      } catch (e) {
+        console.warn('Error parsing waypoints:', e)
+        waypoints = []
+      }
+      setCurrentWaypoints(waypoints)
       
       if (coordinates.length > 0) {
         // Verify elevation quality before building profile data
@@ -595,6 +630,7 @@ export default function GPXViewer() {
           coordinates,
           elevation: trackData.elevation,
           gpxContent: trackData.gpxContent || generateGPXFromElevations(coordinates, []),
+          waypoints: track.waypoints || [],
           color: TRACK_COLORS[prev.length % TRACK_COLORS.length],
           visible: true
         }
@@ -928,8 +964,30 @@ export default function GPXViewer() {
           trackCoordinates={allCoordinates.length > 0 ? allCoordinates : trackCoordinates} 
           multipleTracks={tracks.length > 0 ? tracks.filter(t => t.visible).map(t => ({
             coordinates: t.coordinates,
-            color: t.color
+            color: t.color,
+            waypoints: t.waypoints
           })) : []}
+          waypoints={
+            activeTrack && activeTrack.waypoints?.length > 0
+              ? activeTrack.waypoints.map(wp => ({
+                  position: [wp.lat, wp.lon || wp.lng],
+                  color: '#3498db',
+                  label: wp.name
+                }))
+              : tracks.length > 0 && tracks[0]?.waypoints?.length > 0
+              ? tracks[0].waypoints.map(wp => ({
+                  position: [wp.lat, wp.lon || wp.lng],
+                  color: '#3498db',
+                  label: wp.name
+                }))
+              : currentWaypoints.length > 0
+              ? currentWaypoints.map(wp => ({
+                  position: [wp.lat, wp.lon || wp.lng],
+                  color: '#3498db',
+                  label: wp.name
+                }))
+              : []
+          }
           currentLayer={currentLayer}
           selectedIndex={selectedIndex}
           onHover={(index) => setSelectedIndex(index)}

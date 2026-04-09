@@ -189,6 +189,7 @@ export default function Map({
         {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
           <Marker position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]} icon={L.divIcon({ className: 'loaded-track-hover-marker', html: `<div style="background-color: ${hoverTrack.color || '#ff9800'}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] })} interactive={false} zIndexOffset={1000} />
         )}
+        {waypoints.length > 0 && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable && onWaypointDragEnd} />}
         {photoMarkers.length > 0 && <PhotoMarkersLayer photoMarkers={photoMarkers} />}
         {poiMarker && poiMarker.position && (
           <Marker position={poiMarker.position} icon={L.divIcon({ className: 'poi-marker', html: `<div style="display: flex; flex-direction: column; align-items: center;"><span style="background: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.3); font-weight: bold;">${poiMarker.icon} ${poiMarker.name}</span><div style="font-size: 24px; margin-top: -2px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));">📍</div></div>`, iconSize: [40, 40], iconAnchor: [20, 40] })} />

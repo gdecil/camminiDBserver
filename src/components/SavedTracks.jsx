@@ -4,10 +4,24 @@ import './SavedTracks.css'
 
 // Genera GPX dalla traccia
 const generateGPX = (track) => {
-  const { coordinates, elevation, name } = track
+  const { coordinates, elevation, name, waypoints } = track
   if (!coordinates || coordinates.length === 0) return null
   
-  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Cammini">\n  <metadata>\n    <name>' + name + '</name>\n  </metadata>\n<trk>\n<trkseg>\n'
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Cammini">\n  <metadata>\n    <name>' + name + '</name>\n  </metadata>\n'
+  
+  // Aggiungi waypoints se disponibili
+  if (waypoints && Array.isArray(waypoints) && waypoints.length > 0) {
+    waypoints.forEach((wp) => {
+      const lat = parseFloat(wp.lat)
+      const lng = parseFloat(wp.lng)
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const wpName = wp.name || 'Waypoint'
+        gpx += `  <wpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}">\n    <name>${wpName}</name>\n  </wpt>\n`
+      }
+    })
+  }
+  
+  gpx += '<trk>\n<trkseg>\n'
   
   coordinates.forEach((coord, i) => {
     const ele = elevation && elevation[i] !== undefined ? elevation[i] : 0

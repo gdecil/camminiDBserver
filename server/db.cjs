@@ -43,6 +43,11 @@ async function initSchema() {
         )
     `);
 
+    // Add waypoints column to tracks table if it doesn't exist
+    await query(`
+        ALTER TABLE tracks ADD COLUMN IF NOT EXISTS waypoints JSONB
+    `);
+
     await query(`
         CREATE TABLE IF NOT EXISTS routes (
             id TEXT PRIMARY KEY,

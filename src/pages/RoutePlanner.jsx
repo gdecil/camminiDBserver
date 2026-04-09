@@ -489,8 +489,22 @@ export default function RoutePlanner() {
   }
 
   const generateRouteGPX = (route) => {
-    const { coordinates, elevation, name } = route; if (!coordinates?.length) return null
-    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1" creator="Cammini">\n  <metadata>\n    <name>${name}</name>\n  </metadata>\n  <trk>\n    <name>${name}</name>\n    <trkseg>\n`
+    const { coordinates, elevation, name, waypoints } = route; if (!coordinates?.length) return null
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1" creator="Cammini">\n  <metadata>\n    <name>${name}</name>\n  </metadata>\n`
+    
+    // Aggiungi waypoints se disponibili
+    if (waypoints && Array.isArray(waypoints) && waypoints.length > 0) {
+      waypoints.forEach((wp) => {
+        const lat = parseFloat(wp.lat)
+        const lng = parseFloat(wp.lng)
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const wpName = wp.name || 'Waypoint'
+          gpx += `  <wpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}">\n    <name>${wpName}</name>\n  </wpt>\n`
+        }
+      })
+    }
+    
+    gpx += `  <trk>\n    <name>${name}</name>\n    <trkseg>\n`
     
     // Se elevazioni non sono interpolate (lunghezza diversa dalle coordinate), interpolale
     let fullElevations = elevation

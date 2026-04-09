@@ -233,13 +233,14 @@ app.put('/api/saved/:id', validateAdminPassword, async (req, res) => {
 
 app.get('/api/tracks', async (_req, res) => {
     try {
-        const result = await query('SELECT id, name, coordinates, elevation, created_at, photo_folder_path FROM tracks ORDER BY created_at DESC');
+        const result = await query('SELECT id, name, coordinates, elevation, waypoints, created_at, photo_folder_path FROM tracks ORDER BY created_at DESC');
         if (result.rowCount === 0) return res.json([]);
         const tracks = result.rows.map((row) => ({
             id: row.id,
             name: row.name,
             coordinates: toJsonString(row.coordinates, '[]'),
             elevation: row.elevation ? toJsonString(row.elevation, null) : null,
+            waypoints: row.waypoints ? toJsonString(row.waypoints, []) : [],
             created_at: row.created_at,
             photoFolderPath: row.photo_folder_path || null
         }));
@@ -251,13 +252,13 @@ app.get('/api/tracks', async (_req, res) => {
 
 app.post('/api/tracks', async (req, res) => {
     try {
-        const { name, coordinates, elevation, photoFolderPath } = req.body;
+        const { name, coordinates, elevation, waypoints, photoFolderPath } = req.body;
         if (!name || !coordinates) return res.status(400).json({ error: 'Name and coordinates are required' });
 
         const trackId = crypto.randomUUID();
         await query(
-            'INSERT INTO tracks (id, name, coordinates, elevation, photo_folder_path) VALUES ($1, $2, $3::jsonb, $4::jsonb, $5)',
-            [trackId, name, JSON.stringify(coordinates), elevation ? JSON.stringify(elevation) : null, photoFolderPath || null]
+            'INSERT INTO tracks (id, name, coordinates, elevation, waypoints, photo_folder_path) VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6)',
+            [trackId, name, JSON.stringify(coordinates), elevation ? JSON.stringify(elevation) : null, waypoints ? JSON.stringify(waypoints) : null, photoFolderPath || null]
         );
         res.json({ id: trackId, message: 'Track saved successfully' });
     } catch (error) {
