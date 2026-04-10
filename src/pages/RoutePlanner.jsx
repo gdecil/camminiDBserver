@@ -9,6 +9,34 @@ const API_URL = '/api'
 
 // Routing services configuration
 const ROUTING_SERVICES = {
+  brouter: {
+    name: 'BRouter',
+    description: 'Il motore di gpx.studio, eccellente per sentieri e trekking',
+    url: (sLng, sLat, eLng, eLat, apiKey, profile = 'foot') => {
+      const profileMap = {
+        'hike': 'hiking-mountain',
+        'foot': 'hiking-terrestrial',
+        'bike': 'trekking',
+        'shortest': 'shortest'
+      };
+      const bProfile = profileMap[profile] || 'hiking-terrestrial';
+      return `https://brouter.de/brouter?lonlats=${sLng},${sLat}%7C${eLng},${eLat}&profile=${bProfile}&format=geojson&alternativeidx=0`;
+    },
+    parse: (data) => {
+      if (data.features?.[0]?.geometry?.coordinates) {
+        const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        const distance = parseFloat(data.features[0].properties['track-length']) || 0;
+        return { coords, distance };
+      }
+      return null;
+    },
+    profiles: [
+      { key: 'hike', label: '🥾 BRouter Montagna (Sentieri)' },
+      { key: 'foot', label: '🚶 BRouter Trekking (Pianura)' },
+      { key: 'bike', label: '🚴 BRouter Bici' },
+      { key: 'shortest', label: '📏 BRouter Il più corto' }
+    ]
+  },
   osrm: {
     name: 'OSRM',
     description: 'Open Source Routing Machine',
@@ -283,7 +311,7 @@ export default function RoutePlanner() {
   const [largeLabels, setLargeLabels] = useState(false)
   const routeIdParam = searchParams.get('routeId')
   const [filterText, setFilterText] = useState('')
-  const [routingService, setRoutingService] = useState('osrm')
+  const [routingService, setRoutingService] = useState('brouter')
   const [ghVehicleProfile, setGhVehicleProfile] = useState('hike')
   const [vehicleProfile, setVehicleProfile] = useState('hike')
   const [isCalculating, setIsCalculating] = useState(false)
@@ -523,10 +551,12 @@ export default function RoutePlanner() {
       console.log(`${service.name} URL:`, url)
       const res = await fetch(url)
       if (!res.ok) {
-        console.error(`${service.name} fetch failed with status ${res.status}`)
+        console.warn(`${service.name} fetch failed with status ${res.status}. Falling back to straight line.`)
         return null
       }
       const data = await res.json()
+      // BRouter sometimes returns error messages inside the JSON even with 200 OK
+      if (data.error) { console.warn('BRouter logic error:', data.error); return null; }
       console.log(`${service.name} response:`, data)
       const result = service.parse(data)
       console.log(`${service.name} parsed result:`, result)
@@ -546,18 +576,13 @@ export default function RoutePlanner() {
         const sLat = parseFloat(validWaypoints[i].lat), sLng = parseFloat(validWaypoints[i].lng)
         const eLat = parseFloat(validWaypoints[i + 1].lat), eLng = parseFloat(validWaypoints[i + 1].lng)
         const result = await getSegmentRoute(sLat, sLng, eLat, eLng, routingService)
+        
         if (result?.coords?.length > 1 && result.distance > 0) {
           allCoords = i > 0 ? [...allCoords, ...result.coords.slice(1)] : result.coords
           totalDistance += result.distance; segmentDistances.push((result.distance / 1000).toFixed(2))
-        } else if (result?.coords?.length === 2 && result.distance === 0) {
-          console.warn(`Route between waypoint ${i} and ${i + 1} has no valid road - using straight line`)
-          showMessage(`⚠️ Nessuna strada tra i punti ${i + 1} e ${i + 2} - uso linea retta`, 'warning')
-          const R = 6371, dLat = (eLat - sLat) * Math.PI / 180, dLng = (eLng - sLng) * Math.PI / 180
-          const a = Math.sin(dLat/2) ** 2 + Math.cos(sLat * Math.PI/180) * Math.cos(eLat * Math.PI/180) * Math.sin(dLng/2) ** 2
-          const segDist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-          allCoords = i > 0 ? [...allCoords, [eLat, eLng]] : [[sLat, sLng], [eLat, eLng]]
-          totalDistance += segDist * 1000; segmentDistances.push(segDist.toFixed(2))
         } else {
+          // Fallback alla linea retta se il servizio fallisce (500, 400 o nessun percorso trovato)
+          showMessage(`⚠️ Nessuna strada tra i punti ${i + 1} e ${i + 2} - uso linea retta`, 'warning')
           const R = 6371, dLat = (eLat - sLat) * Math.PI / 180, dLng = (eLng - sLng) * Math.PI / 180
           const a = Math.sin(dLat/2) ** 2 + Math.cos(sLat * Math.PI/180) * Math.cos(eLat * Math.PI/180) * Math.sin(dLng/2) ** 2
           const segDist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
@@ -566,9 +591,9 @@ export default function RoutePlanner() {
         }
       }
       setRouteCoordinates(allCoords); setDistance((totalDistance / 1000).toFixed(2)); setSegments(segmentDistances)
-      await calculateElevation(allCoords); showMessage(`Percorso calcolato con ${serviceName}`, 'success')
-    } catch (error) { console.error('Error:', error); showMessage('Errore nel calcolo', 'error') }
-    setIsCalculating(false); setLoadingElevation(false)
+      if (allCoords.length > 0) await calculateElevation(allCoords)
+    } catch (error) { console.error('Route calculation error:', error); showMessage('Errore nel calcolo del percorso', 'error') }
+    setIsCalculating(false)
   }
 
   const calculateElevation = async (coordinates) => {
@@ -994,7 +1019,7 @@ export default function RoutePlanner() {
                 </div>
               </>
             )}
-            {(routingService === 'osrm' || routingService === 'valhalla') && (
+            {(routingService === 'osrm' || routingService === 'valhalla' || routingService === 'brouter') && (
               <div className="vehicle-profile-selector" style={{ marginTop: '10px' }}>
                 <label>🥾 Tipo di percorso:</label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
