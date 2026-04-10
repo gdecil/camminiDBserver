@@ -12,70 +12,172 @@ const ROUTING_SERVICES = {
   osrm: {
     name: 'OSRM',
     description: 'Open Source Routing Machine',
-    url: (sLng, sLat, eLng, eLat) => 
-      `https://router.project-osrm.org/route/v1/walking/${sLng},${sLat};${eLng},${eLat}?overview=full&geometries=geojson`,
+    url: (sLng, sLat, eLng, eLat, apiKey, profile = 'walking') => {
+      // OSRM profiles: car, bike, foot, walking (same as foot), scooter
+      const osrmProfile = profile === 'hike' ? 'walking' : profile === 'bike' || profile === 'racingbike' ? 'bike' : 'walking'
+      return `https://router.project-osrm.org/route/v1/${osrmProfile}/${sLng},${sLat};${eLng},${eLat}?overview=full&geometries=geojson&alternatives=false`
+    },
     parse: (data) => {
       if (data.code === 'Ok' && data.routes?.[0]) {
+        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]])
+        console.log('OSRM geometry.coordinates (first 3):', data.routes[0].geometry.coordinates.slice(0, 3))
+        console.log('OSRM converted coords (first 3):', coords.slice(0, 3))
+        console.log('OSRM distance:', data.routes[0].distance)
         return {
-          coords: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+          coords,
           distance: data.routes[0].distance
         }
       }
+      console.warn('OSRM: No routes found in response or code is not Ok')
       return null
-    }
+    },
+    profiles: [
+      { key: 'hike', label: '🥾 Hiking (sentieri)', default: true },
+      { key: 'foot', label: '🚶 Pedestrian (strade)' },
+      { key: 'bike', label: '🚴 Mountain Bike' }
+    ]
   },
   valhalla: {
     name: 'Valhalla',
     description: 'Open source routing engine',
-    url: (sLng, sLat, eLng, eLat) => {
+    url: (sLng, sLat, eLng, eLat, apiKey, profile = 'hiking') => {
       const body = {
         locations: [{ lat: sLat, lon: sLng }, { lat: eLat, lon: eLng }],
-        costing: 'pedestrian',
+        costing: profile === 'hike' || profile === 'foot' ? 'pedestrian' : profile === 'bike' || profile === 'racingbike' ? 'bicycle' : 'pedestrian',
         units: 'kilometers'
       }
       return 'https://valhalla1.openstreetmap.de/route'
     },
-    parse: async (sLng, sLat, eLng, eLat) => {
-      const body = {
-        locations: [{ lat: parseFloat(sLat), lon: parseFloat(sLng) }, { lat: parseFloat(eLat), lon: parseFloat(eLng) }],
-        costing: 'pedestrian',
-        units: 'kilometers'
+    parse: async (sLng, sLat, eLng, eLat, apiKey, profile = 'hiking') => {
+      try {
+        const body = {
+          locations: [{ lat: parseFloat(sLat), lon: parseFloat(sLng) }, { lat: parseFloat(eLat), lon: parseFloat(eLng) }],
+          costing: profile === 'hike' || profile === 'foot' ? 'pedestrian' : profile === 'bike' || profile === 'racingbike' ? 'bicycle' : 'pedestrian',
+          units: 'kilometers'
+        }
+        const res = await fetch('https://valhalla1.openstreetmap.de/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+        if (!res.ok) return null
+        const data = await res.json()
+        if (data.trip?.legs?.[0]) {
+          const leg = data.trip.legs[0]
+          const coords = leg.shape ? decodePolyline6(leg.shape, 6) : []
+          console.log('Valhalla leg.shape:', leg.shape?.substring(0, 50))
+          console.log('Valhalla decoded coords (first 5):', coords.slice(0, 5))
+          const distance = leg.summary?.length * 1000 || 0
+          console.log('Valhalla distance:', distance)
+          return { coords, distance }
+        }
+        console.warn('Valhalla: No trip or legs found in response')
+        return null
+      } catch (error) {
+        console.error('Valhalla parse error:', error)
+        return null
       }
-      const res = await fetch('https://valhalla1.openstreetmap.de/route', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-      const data = await res.json()
-      if (data.trip?.legs?.[0]) {
-        const leg = data.trip.legs[0]
-        const coords = leg.shape ? decodePolyline6(leg.shape, 6) : []
-        const distance = leg.summary?.length * 1000 || 0
-        return { coords, distance }
-      }
-      return null
     },
+    profiles: [
+      { key: 'hike', label: '🥾 Hiking (sentieri)', default: true },
+      { key: 'foot', label: '🚶 Pedestrian (strade)' },
+      { key: 'bike', label: '🚴 Mountain Bike' }
+    ],
     isAsync: true
   },
   graphhopper: {
     name: 'GraphHopper',
     description: 'Fast open-source routing engine (API key required)',
-    url: (sLng, sLat, eLng, eLat, apiKey) => {
+    url: (sLng, sLat, eLng, eLat, apiKey, vehicle = 'hike') => {
       const keyParam = apiKey ? `&key=${apiKey}` : ''
-      return `https://graphhopper.com/api/1/route?point=${sLat},${sLng}&point=${eLat},${eLng}&vehicle=foot&locale=it&calc_points=true&points_encoded=false${keyParam}`
+      let mappedVehicle = vehicle
+      if (vehicle === 'hike') mappedVehicle = 'foot'
+      if (vehicle === 'foot') mappedVehicle = 'foot'
+      if (vehicle === 'bike') mappedVehicle = 'bike'
+      if (vehicle === 'racingbike') mappedVehicle = 'racingbike'
+      const chParam = mappedVehicle === 'foot' ? '&ch=false' : ''
+      const weightParam = mappedVehicle === 'foot' ? '&weighting=fastest' : ''
+      const elevationParam = '&elevation=true'
+      return `https://graphhopper.com/api/1/route?point=${sLat},${sLng}&point=${eLat},${eLng}&vehicle=${mappedVehicle}&locale=it&calc_points=true&points_encoded=false${chParam}${weightParam}${elevationParam}${keyParam}`
     },
     parse: (data) => {
       if (data.paths?.[0]) {
         const path = data.paths[0]
         const coords = path.points?.coordinates?.map(c => [c[1], c[0]]) || []
+        console.log('GraphHopper path.points:', path.points?.coordinates?.slice(0, 3))
+        console.log('GraphHopper converted coords (first 3):', coords.slice(0, 3))
+        console.log('GraphHopper distance:', path.distance)
         return {
           coords,
           distance: path.distance
         }
       }
+      console.warn('GraphHopper: No paths found in response')
       return null
     },
-    requiresApiKey: true
+    requiresApiKey: true,
+    profiles: [
+      { key: 'hike', label: '🥾 Hiking (sentieri)', default: true },
+      { key: 'foot', label: '🚶 Pedestrian (strade)' },
+      { key: 'bike', label: '🚴 Mountain Bike' },
+      { key: 'racingbike', label: '🚲 Road Bike' }
+    ]
+  },
+  openrouteservice: {
+    name: 'OpenRouteService',
+    description: 'Professional routing with better coverage',
+    url: (sLng, sLat, eLng, eLat, apiKey, profile = 'hiking') => {
+      return null
+    },
+    parse: async (sLng, sLat, eLng, eLat, apiKey, profile = 'hiking') => {
+      try {
+        let profileMap = {
+          'hike': 'foot-hiking',
+          'foot': 'foot-walking',
+          'bike': 'cycling-regular',
+          'racingbike': 'cycling-road'
+        }
+        const orsProfile = profileMap[profile] || 'foot-hiking'
+        const body = {
+          coordinates: [[parseFloat(sLng), parseFloat(sLat)], [parseFloat(eLng), parseFloat(eLat)]],
+          profile: orsProfile,
+          format: 'json'
+        }
+        const res = await fetch('https://api.openrouteservice.org/v2/directions/' + orsProfile, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(body)
+        })
+        if (!res.ok) {
+          console.warn(`OpenRouteService error: ${res.status}`)
+          return null
+        }
+        const data = await res.json()
+        if (data.routes?.[0]?.geometry?.coordinates) {
+          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]])
+          console.log('OpenRouteService coordinates (first 3):', data.routes[0].geometry.coordinates.slice(0, 3))
+          console.log('OpenRouteService converted coords (first 3):', coords.slice(0, 3))
+          const distance = data.routes[0].summary?.distance || 0
+          console.log('OpenRouteService distance:', distance)
+          return { coords, distance }
+        }
+        console.warn('OpenRouteService: No routes found in response')
+        return null
+      } catch (error) {
+        console.error('OpenRouteService parse error:', error)
+        return null
+      }
+    },
+    profiles: [
+      { key: 'hike', label: '🥾 Hiking (sentieri)', default: true },
+      { key: 'foot', label: '🚶 Pedestrian (strade)' },
+      { key: 'bike', label: '🚴 Mountain Bike' },
+      { key: 'racingbike', label: '🚲 Road Bike' }
+    ],
+    isAsync: true
   }
 }
 
@@ -182,6 +284,8 @@ export default function RoutePlanner() {
   const routeIdParam = searchParams.get('routeId')
   const [filterText, setFilterText] = useState('')
   const [routingService, setRoutingService] = useState('osrm')
+  const [ghVehicleProfile, setGhVehicleProfile] = useState('hike')
+  const [vehicleProfile, setVehicleProfile] = useState('hike')
   const [isCalculating, setIsCalculating] = useState(false)
   const [graphhopperApiKey, setGraphhopperApiKey] = useState('')
   
@@ -408,9 +512,25 @@ export default function RoutePlanner() {
   const getSegmentRoute = async (sLat, sLng, eLat, eLng, serviceKey) => {
     const service = ROUTING_SERVICES[serviceKey]; if (!service) return null
     try {
-      if (service.isAsync) return await service.parse(sLng, sLat, eLng, eLat)
-      const url = service.requiresApiKey ? service.url(sLng, sLat, eLng, eLat, graphhopperApiKey) : service.url(sLng, sLat, eLng, eLat)
-      const res = await fetch(url); const data = await res.json(); return service.parse(data)
+      if (service.isAsync) {
+        const profile = serviceKey === 'graphhopper' ? ghVehicleProfile : vehicleProfile
+        const result = await service.parse(sLng, sLat, eLng, eLat, graphhopperApiKey, profile)
+        console.log(`${service.name} async result:`, result)
+        return result
+      }
+      const profile = serviceKey === 'graphhopper' ? ghVehicleProfile : vehicleProfile
+      const url = service.requiresApiKey ? service.url(sLng, sLat, eLng, eLat, graphhopperApiKey, profile) : service.url(sLng, sLat, eLng, eLat, null, profile)
+      console.log(`${service.name} URL:`, url)
+      const res = await fetch(url)
+      if (!res.ok) {
+        console.error(`${service.name} fetch failed with status ${res.status}`)
+        return null
+      }
+      const data = await res.json()
+      console.log(`${service.name} response:`, data)
+      const result = service.parse(data)
+      console.log(`${service.name} parsed result:`, result)
+      return result
     } catch (error) { console.error(`Error with ${service.name}:`, error); return null }
   }
 
@@ -426,9 +546,17 @@ export default function RoutePlanner() {
         const sLat = parseFloat(validWaypoints[i].lat), sLng = parseFloat(validWaypoints[i].lng)
         const eLat = parseFloat(validWaypoints[i + 1].lat), eLng = parseFloat(validWaypoints[i + 1].lng)
         const result = await getSegmentRoute(sLat, sLng, eLat, eLng, routingService)
-        if (result?.coords?.length > 0) {
+        if (result?.coords?.length > 1 && result.distance > 0) {
           allCoords = i > 0 ? [...allCoords, ...result.coords.slice(1)] : result.coords
           totalDistance += result.distance; segmentDistances.push((result.distance / 1000).toFixed(2))
+        } else if (result?.coords?.length === 2 && result.distance === 0) {
+          console.warn(`Route between waypoint ${i} and ${i + 1} has no valid road - using straight line`)
+          showMessage(`⚠️ Nessuna strada tra i punti ${i + 1} e ${i + 2} - uso linea retta`, 'warning')
+          const R = 6371, dLat = (eLat - sLat) * Math.PI / 180, dLng = (eLng - sLng) * Math.PI / 180
+          const a = Math.sin(dLat/2) ** 2 + Math.cos(sLat * Math.PI/180) * Math.cos(eLat * Math.PI/180) * Math.sin(dLng/2) ** 2
+          const segDist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+          allCoords = i > 0 ? [...allCoords, [eLat, eLng]] : [[sLat, sLng], [eLat, eLng]]
+          totalDistance += segDist * 1000; segmentDistances.push(segDist.toFixed(2))
         } else {
           const R = 6371, dLat = (eLat - sLat) * Math.PI / 180, dLng = (eLng - sLng) * Math.PI / 180
           const a = Math.sin(dLat/2) ** 2 + Math.cos(sLat * Math.PI/180) * Math.cos(eLat * Math.PI/180) * Math.sin(dLng/2) ** 2
@@ -836,7 +964,63 @@ export default function RoutePlanner() {
             <div className="service-buttons">
               {Object.entries(ROUTING_SERVICES).map(([key, service]) => (<button key={key} className={`service-btn ${routingService === key ? 'active' : ''}`} onClick={() => setRoutingService(key)} title={service.description}>{service.name}</button>))}
             </div>
-            {routingService === 'graphhopper' && <div className="api-key-input"><label>🔑 API Key: <a href="https://graphhopper.com/#start-api-and-routing" target="_blank" rel="noopener noreferrer" className="api-key-link">Ottieni gratis →</a></label><input id="gh-api-key" type="text" value={graphhopperApiKey} onChange={(e) => setGraphhopperApiKey(e.target.value)} placeholder="Incolla API key..." />{!graphhopperApiKey && <p className="api-key-warning">⚠️ Senza API key userà linee rette</p>}</div>}
+            {routingService === 'graphhopper' && (
+              <>
+                <div className="api-key-input"><label>🔑 API Key: <a href="https://graphhopper.com/#start-api-and-routing" target="_blank" rel="noopener noreferrer" className="api-key-link">Ottieni gratis →</a></label><input id="gh-api-key" type="text" value={graphhopperApiKey} onChange={(e) => setGraphhopperApiKey(e.target.value)} placeholder="Incolla API key..." />{!graphhopperApiKey && <p className="api-key-warning">⚠️ Senza API key userà linee rette</p>}</div>
+                <div className="vehicle-profile-selector" style={{ marginTop: '10px' }}>
+                  <label>🥾 Tipo di percorso:</label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {ROUTING_SERVICES.graphhopper.profiles.map(profile => (
+                      <button 
+                        key={profile.key}
+                        className={`profile-btn ${ghVehicleProfile === profile.key ? 'active' : ''}`}
+                        onClick={() => setGhVehicleProfile(profile.key)}
+                        title={profile.label}
+                        style={{
+                          padding: '6px 12px',
+                          border: `2px solid ${ghVehicleProfile === profile.key ? '#2ecc71' : '#ccc'}`,
+                          borderRadius: '4px',
+                          background: ghVehicleProfile === profile.key ? '#2ecc71' : '#f5f5f5',
+                          color: ghVehicleProfile === profile.key ? 'white' : '#333',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: ghVehicleProfile === profile.key ? 'bold' : 'normal'
+                        }}
+                      >
+                        {profile.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            {(routingService === 'osrm' || routingService === 'valhalla') && (
+              <div className="vehicle-profile-selector" style={{ marginTop: '10px' }}>
+                <label>🥾 Tipo di percorso:</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {ROUTING_SERVICES[routingService].profiles.map(profile => (
+                    <button 
+                      key={profile.key}
+                      className={`profile-btn ${vehicleProfile === profile.key ? 'active' : ''}`}
+                      onClick={() => setVehicleProfile(profile.key)}
+                      title={profile.label}
+                      style={{
+                        padding: '6px 12px',
+                        border: `2px solid ${vehicleProfile === profile.key ? '#2ecc71' : '#ccc'}`,
+                        borderRadius: '4px',
+                        background: vehicleProfile === profile.key ? '#2ecc71' : '#f5f5f5',
+                        color: vehicleProfile === profile.key ? 'white' : '#333',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: vehicleProfile === profile.key ? 'bold' : 'normal'
+                      }}
+                    >
+                      {profile.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="waypoints-list">
             {waypoints.map((wp, index) => (<div key={wp.id} className={`waypoint-item ${draggedIndex === index ? 'dragging' : ''}`} style={{ borderLeftColor: WAYPOINT_COLORS[index % WAYPOINT_COLORS.length] }} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragEnd={handleDragEnd} onDrop={(e) => handleDrop(e, index)}><div className="waypoint-header"><span className="waypoint-drag-handle">⋮⋮</span><span className="waypoint-number" style={{ backgroundColor: WAYPOINT_COLORS[index % WAYPOINT_COLORS.length] }}>{index + 1}</span><input type="text" className="waypoint-name" value={wp.name} onChange={(e) => updateWaypoint(wp.id, 'name', e.target.value)} placeholder="Nome tappa" /><button className="waypoint-remove" onClick={() => removeWaypoint(wp.id)}>✕</button></div><div className="waypoint-coords"><input type="text" placeholder="Lat" value={wp.lat} onChange={(e) => updateWaypoint(wp.id, 'lat', e.target.value)} /><input type="text" placeholder="Lng" value={wp.lng} onChange={(e) => updateWaypoint(wp.id, 'lng', e.target.value)} /><button className="geocode-btn" onClick={() => openGeocodeSearch(wp.id)} title="Cerca luogo">🔍</button></div>{index > 0 && segments[index - 1] && <div className="segment-distance">← {segments[index - 1]} km</div>}</div>))}
