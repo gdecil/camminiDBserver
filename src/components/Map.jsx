@@ -35,14 +35,19 @@ function MapController({ bounds }) {
   return null
 }
 
-function MapEvents({ onMapClick }) {
+function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop }) {
   const map = useMap()
   useEffect(() => {
-    if (onMapClick) {
-      map.on('click', onMapClick)
-      return () => { map.off('click', onMapClick) }
+    const handleClick = (e) => {
+      if (dragSelectedPhoto && onPhotoDrop) {
+        onPhotoDrop(e.latlng.lat, e.latlng.lng)
+      } else if (onMapClick) {
+        onMapClick(e)
+      }
     }
-  }, [map, onMapClick])
+    map.on('click', handleClick)
+    return () => { map.off('click', handleClick) }
+  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop])
   return null
 }
 
@@ -125,7 +130,7 @@ function SelectedPointMarker({ coordinates, selectedIndex }) {
 }
 
 // Component for GPS-tagged photo markers
-function PhotoMarkersLayer({ photoMarkers }) {
+function PhotoMarkersLayer({ photoMarkers, itemId, onPhotoDrop, onPhotoClick }) {
   const map = useMap()
   const markersRef = useRef([])
   useEffect(() => {
@@ -139,13 +144,24 @@ function PhotoMarkersLayer({ photoMarkers }) {
         iconSize: [30, 30],
         iconAnchor: [15, 15],
       })
-      const marker = L.marker(pm.position, { icon })
-      marker.bindPopup(`<div style="max-width: 200px; text-align: center;"><img src="${pm.photo.url}" alt="${pm.photo.name}" style="max-width: 100%; border-radius: 4px;" /><p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">${pm.photo.name}</p></div>`)
+      const marker = L.marker(pm.position, { icon, draggable: true })
+      const rawPhotoPath = pm.photo.path ? decodeURIComponent(pm.photo.path) : ''
+      const photoUrl = pm.photo.url || `/api/photos/${encodeURIComponent(rawPhotoPath)}`
+      marker.bindPopup(`<div style="max-width: 200px; text-align: center;"><img src="${photoUrl}" alt="${pm.photo.name}" style="max-width: 100%; border-radius: 4px;" /><p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">${pm.photo.name}</p></div>`)
+      marker.on('click', () => {
+        if (onPhotoClick) onPhotoClick(pm.photo.path)
+      })
+      marker.on('dragend', async function(e) {
+        const newLatLng = e.target.getLatLng()
+        if (onPhotoDrop) {
+          onPhotoDrop(newLatLng.lat, newLatLng.lng, pm.photo.path)
+        }
+      })
       marker.addTo(map)
       markersRef.current.push(marker)
     })
     return () => { markersRef.current.forEach(marker => { if (marker) marker.remove() }) }
-  }, [photoMarkers, map])
+  }, [photoMarkers, map, itemId, onPhotoDrop, onPhotoClick])
   return null
 }
 
@@ -153,8 +169,9 @@ export default function Map({
   trackCoordinates = [], startMarker = null, endMarker = null, routeCoordinates = [],
   center = [41.9029, 12.4964], zoom = 13, onMapClick = null, currentLayer = 'OpenStreetMap',
   waypoints = [], onWaypointDragEnd = null, draggable = true, selectedIndex = null,
-  onHover = null, markers = [], onMarkerClick = null, multipleTracks = [],
-  hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false
+  onHover = null, markers = [], onMarkerClick = null, onPhotoClick = null, multipleTracks = [],
+  hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false,
+  dragSelectedPhoto = null, onPhotoDrop = null, itemId = null
 }) {
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
   const allCoords = multiTrackCoords.length > 0 ? [...multiTrackCoords, ...trackCoordinates, ...routeCoordinates] : [...trackCoordinates, ...routeCoordinates]
@@ -184,13 +201,13 @@ export default function Map({
         {startMarker && <Marker position={startMarker} icon={startIcon} />}
         {endMarker && <Marker position={endMarker} icon={endIcon} />}
         {bounds && <MapController bounds={bounds} />}
-        {onMapClick && <MapEvents onMapClick={onMapClick} />}
+        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} />
         {selectedIndex !== null && (routeCoordinates.length > 0 || trackCoordinates.length > 0) && <SelectedPointMarker coordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} selectedIndex={selectedIndex} />}
         {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
           <Marker position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]} icon={L.divIcon({ className: 'loaded-track-hover-marker', html: `<div style="background-color: ${hoverTrack.color || '#ff9800'}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] })} interactive={false} zIndexOffset={1000} />
         )}
         {waypoints.length > 0 && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable && onWaypointDragEnd} />}
-        {photoMarkers.length > 0 && <PhotoMarkersLayer photoMarkers={photoMarkers} />}
+        {photoMarkers.length > 0 && <PhotoMarkersLayer photoMarkers={photoMarkers} itemId={itemId} onPhotoDrop={onPhotoDrop} onPhotoClick={onPhotoClick} />}
         {poiMarker && poiMarker.position && (
           <Marker position={poiMarker.position} icon={L.divIcon({ className: 'poi-marker', html: `<div style="display: flex; flex-direction: column; align-items: center;"><span style="background: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.3); font-weight: bold;">${poiMarker.icon} ${poiMarker.name}</span><div style="font-size: 24px; margin-top: -2px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));">📍</div></div>`, iconSize: [40, 40], iconAnchor: [20, 40] })} />
         )}

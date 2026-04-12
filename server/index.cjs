@@ -396,6 +396,103 @@ app.post('/api/elevation', async (req, res) => {
     }
 });
 
+// Get photo geolocations for a track
+app.get('/api/tracks/:id/photos', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await query(
+            'SELECT id, track_id, photo_path, photo_name, latitude, longitude, created_at, updated_at FROM photo_geolocations WHERE track_id = $1 ORDER BY created_at DESC',
+            [id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching photo geolocations:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Save photo geolocation for a track
+app.post('/api/tracks/:id/photos', async (req, res) => {
+    try {
+        const { id: trackId } = req.params;
+        const { photoPath, photoName, latitude, longitude } = req.body;
+        
+        if (!photoPath || !photoName || latitude === undefined || longitude === undefined) {
+            return res.status(400).json({ error: 'photoPath, photoName, latitude, and longitude are required' });
+        }
+
+        // Check if photo already has geolocation for this track
+        const existing = await query(
+            'SELECT id FROM photo_geolocations WHERE track_id = $1 AND photo_path = $2',
+            [trackId, photoPath]
+        );
+
+        if (existing.rowCount > 0) {
+            // Update existing
+            await query(
+                'UPDATE photo_geolocations SET latitude = $1, longitude = $2, updated_at = CURRENT_TIMESTAMP WHERE track_id = $3 AND photo_path = $4',
+                [latitude, longitude, trackId, photoPath]
+            );
+            res.json({ message: 'Photo geolocation updated', updated: true });
+        } else {
+            // Insert new
+            const geoId = crypto.randomUUID();
+            await query(
+                'INSERT INTO photo_geolocations (id, track_id, photo_path, photo_name, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6)',
+                [geoId, trackId, photoPath, photoName, latitude, longitude]
+            );
+            res.json({ id: geoId, message: 'Photo geolocation saved', created: true });
+        }
+    } catch (error) {
+        console.error('Error saving photo geolocation:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update photo geolocation (for drag and drop)
+app.put('/api/tracks/:id/photos', async (req, res) => {
+    try {
+        const { id: trackId } = req.params;
+        const { photoPath, latitude, longitude } = req.body;
+        
+        if (!photoPath || latitude === undefined || longitude === undefined) {
+            return res.status(400).json({ error: 'photoPath, latitude, and longitude are required' });
+        }
+
+        const result = await query(
+            'UPDATE photo_geolocations SET latitude = $1, longitude = $2, updated_at = CURRENT_TIMESTAMP WHERE track_id = $3 AND photo_path = $4 RETURNING id',
+            [latitude, longitude, trackId, photoPath]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Photo geolocation not found' });
+        }
+
+        res.json({ message: 'Photo geolocation updated', photoPath, latitude, longitude });
+    } catch (error) {
+        console.error('Error updating photo geolocation:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete photo geolocation
+app.delete('/api/tracks/:id/photos/:photoPath', async (req, res) => {
+    try {
+        const { id: trackId } = req.params;
+        const { photoPath } = req.params;
+        
+        await query(
+            'DELETE FROM photo_geolocations WHERE track_id = $1 AND photo_path = $2',
+            [trackId, decodeURIComponent(photoPath)]
+        );
+        
+        res.json({ message: 'Photo geolocation deleted' });
+    } catch (error) {
+        console.error('Error deleting photo geolocation:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 async function start() {
     await initDatabase();
     app.listen(PORT, '0.0.0.0', () => {

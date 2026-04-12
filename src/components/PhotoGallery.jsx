@@ -4,7 +4,7 @@ import './PhotoGallery.css'
 
 const API_URL = '/api'
 
-export default function PhotoGallery({ itemId, itemType, coordinates: trackCoordinates, fullscreenMode = false, onFullscreenToggle }) {
+export default function PhotoGallery({ itemId, itemType, coordinates: trackCoordinates, fullscreenMode = false, onFullscreenToggle, onDragSelect, openPhotoRequest, onPhotoOpenHandled }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(false)
   const [folderPath, setFolderPath] = useState('')
@@ -21,6 +21,7 @@ export default function PhotoGallery({ itemId, itemType, coordinates: trackCoord
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragSelectedPhoto, setDragSelectedPhoto] = useState(null) // Photo selected for drag-and-drop positioning
   const fileInputRef = useRef(null)
   const scrollContainerRef = useRef(null)
   const modalImgRef = useRef(null)
@@ -225,10 +226,18 @@ export default function PhotoGallery({ itemId, itemType, coordinates: trackCoord
     }
   }
 
-  const handlePhotoClick = (photo, index) => {
-    setSelectedPhoto({ photo, index })
-    setSelectedMarkerIndex(index)
-    setCurrentPhotoIndex(index)
+  const handlePhotoClick = (e, photo, index) => {
+    if (e.shiftKey) {
+      // Shift+click to select for drag-and-drop positioning
+      const newSelection = dragSelectedPhoto?.index === index ? null : { photo, index }
+      setDragSelectedPhoto(newSelection)
+      if (onDragSelect) onDragSelect(newSelection)
+    } else {
+      // Normal click to open modal
+      setSelectedPhoto({ photo, index })
+      setSelectedMarkerIndex(index)
+      setCurrentPhotoIndex(index)
+    }
   }
 
   // Navigation functions for fullscreen mode
@@ -355,6 +364,18 @@ export default function PhotoGallery({ itemId, itemType, coordinates: trackCoord
     }
   }, [selectedPhoto?.index])
 
+  useEffect(() => {
+    if (!openPhotoRequest || !openPhotoRequest.path || photos.length === 0) return
+    const matchIndex = photos.findIndex(photo => photo.path === openPhotoRequest.path)
+    if (matchIndex !== -1) {
+      const photo = photos[matchIndex]
+      setSelectedPhoto({ photo, index: matchIndex })
+      setCurrentPhotoIndex(matchIndex)
+      scrollToPhoto(matchIndex)
+      if (onPhotoOpenHandled) onPhotoOpenHandled()
+    }
+  }, [openPhotoRequest, photos, onPhotoOpenHandled])
+
   // Zoom handlers
   const handleWheel = (e) => {
     if (!selectedPhoto) return
@@ -457,8 +478,8 @@ export default function PhotoGallery({ itemId, itemType, coordinates: trackCoord
           {photos.map((photo, index) => (
             <div 
               key={index} 
-              className={`gallery-item ${selectedPhoto?.index === index ? 'selected' : ''}`}
-              onClick={() => handlePhotoClick(photo, index)}
+              className={`gallery-item ${selectedPhoto?.index === index ? 'selected' : ''} ${dragSelectedPhoto?.index === index ? 'drag-selected' : ''}`}
+              onClick={(e) => handlePhotoClick(e, photo, index)}
             >
               <img src={photo.url} alt={photo.name} loading="lazy" />
               {photoMarkers.find(m => m.index === index) && (

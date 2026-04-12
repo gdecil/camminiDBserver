@@ -68,6 +68,26 @@ async function initSchema() {
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Create photo_geolocations table for storing photo positions on the map
+    await query(`
+        CREATE TABLE IF NOT EXISTS photo_geolocations (
+            id TEXT PRIMARY KEY,
+            track_id TEXT NOT NULL,
+            photo_path TEXT NOT NULL,
+            photo_name TEXT NOT NULL,
+            latitude DOUBLE PRECISION NOT NULL,
+            longitude DOUBLE PRECISION NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
+        )
+    `);
+
+    // Add index for faster lookups by track_id
+    await query(`
+        CREATE INDEX IF NOT EXISTS idx_photo_geolocations_track_id ON photo_geolocations(track_id)
+    `);
 }
 
 async function closePool() {

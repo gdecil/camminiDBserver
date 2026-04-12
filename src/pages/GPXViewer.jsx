@@ -75,6 +75,11 @@ export default function GPXViewer() {
     }
   }, [isResizing])
 
+  // Load saved tracks on mount
+  // useEffect(() => {
+  //   loadSavedTracks()
+  // }, [])
+
   const interpolateElevationsToLength = (elevations, targetLength) => {
     if (!Array.isArray(elevations) || elevations.length === 0 || targetLength <= 0) return []
     if (elevations.length === targetLength) return elevations.map(v => Number(v))
@@ -595,9 +600,114 @@ export default function GPXViewer() {
           console.warn(`Elevation data mismatch: ${track.elevation?.length || 0} elevations vs ${coordinates.length} coordinates for track "${track.name}"`)
         }
       }
+      
+      // Load photo geolocations for this track
+      loadPhotoGeolocations(id)
+      
       showMessage(`Traccia "${track.name}" caricata${areElevationsValidForTrack(track.elevation, coordinates.length) ? ' con profilo altimetrico' : ' senza elevazioni disponibili'}`, 'info')
     }
   }
+
+  const loadPhotoGeolocations = async (trackId) => {
+    try {
+      const res = await fetch(`${API_URL}/tracks/${trackId}/photos`)
+      if (res.ok) {
+        const photos = await res.json()
+        const markers = photos.map(photo => {
+          const rawPath = photo.photo_path ? decodeURIComponent(photo.photo_path) : ''
+          return {
+            position: [photo.latitude, photo.longitude],
+            photo: {
+              path: rawPath,
+              url: `/api/photos/${encodeURIComponent(rawPath)}`,
+              name: photo.photo_name || rawPath.split('/').pop()
+            },
+            index: 0 // Not used for geolocated photos
+          }
+        })
+        setPhotoMarkers(markers)
+      } else {
+        console.error('Failed to load photo geolocations')
+        setPhotoMarkers([])
+      }
+    } catch (error) {
+      console.error('Error loading photo geolocations:', error)
+      setPhotoMarkers([])
+    }
+  }
+
+  const handlePhotoDrop = async (lat, lng, photoPath) => {
+    if (!activeTrackId) return
+
+    console.log('handlePhotoDrop called with:', { lat, lng, photoPath, dragSelectedPhoto: !!dragSelectedPhoto })
+
+    let method = 'POST'
+    let body
+
+    if (dragSelectedPhoto) {
+      // New placement
+      const photo_path = dragSelectedPhoto.photo.path || decodeURIComponent(dragSelectedPhoto.photo.url.replace('/api/photos/', ''))
+      const photo_name = dragSelectedPhoto.photo.name
+      body = JSON.stringify({
+        photoPath: photo_path,
+        photoName: photo_name,
+        latitude: lat,
+        longitude: lng
+      })
+      console.log('New placement:', { photo_path, photo_name })
+    } else if (photoPath) {
+      // Repositioning existing
+      method = 'PUT'
+      body = JSON.stringify({
+        photoPath: decodeURIComponent(photoPath),
+        latitude: lat,
+        longitude: lng
+      })
+      console.log('Repositioning:', { photoPath })
+    } else {
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/tracks/${activeTrackId}/photos`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body
+      })
+      console.log('API response:', res.status, res.statusText)
+      if (res.ok) {
+        showMessage('Foto geolocalizzata salvata', 'success')
+        // Reload photo geolocations to update markers
+        loadPhotoGeolocations(activeTrackId)
+        setDragSelectedPhoto(null)
+      } else {
+        const errorData = await res.json()
+        console.error('API error:', errorData)
+        showMessage('Errore nel salvare la geolocalizzazione: ' + (errorData.error || 'Unknown error'), 'error')
+      }
+    } catch (error) {
+      console.error('Fetch error:', error)
+      showMessage('Errore nel salvare la geolocalizzazione', 'error')
+    }
+  }
+
+  // const loadSavedTracks = async () => {
+  //   try {
+  //     const res = await fetch(`${API_URL}/saved`)
+  //     if (res.ok) {
+  //       const data = await res.json()
+  //       const tracksObj = {}
+  //       data.forEach(track => {
+  //         tracksObj[track.id] = track
+  //       })
+  //       setSavedTracks(tracksObj)
+  //     } else {
+  //       console.error('Failed to load saved tracks')
+  //     }
+  //   } catch (error) {
+  //     console.error('Error loading saved tracks:', error)
+  //   }
+  // }
 
   const handleAddTrack = (id) => {
     const track = savedTracks[id]
@@ -917,6 +1027,8 @@ export default function GPXViewer() {
   const [photoMarkers, setPhotoMarkers] = useState([])
   const [photoGalleryKey, setPhotoGalleryKey] = useState(0)
   const [showFullscreenGallery, setShowFullscreenGallery] = useState(false)
+  const [dragSelectedPhoto, setDragSelectedPhoto] = useState(null) // Photo selected for drag-and-drop
+  const [photoOpenRequest, setPhotoOpenRequest] = useState(null)
 
   // Callback to receive photo markers from PhotoGallery
   useEffect(() => {
@@ -993,6 +1105,10 @@ export default function GPXViewer() {
           onHover={(index) => setSelectedIndex(index)}
           showHikingOverlay={showHikingOverlay}
           photoMarkers={photoMarkers}
+          dragSelectedPhoto={dragSelectedPhoto}
+          onPhotoDrop={(lat, lng, photoPath) => handlePhotoDrop(lat, lng, photoPath)}
+          onPhotoClick={(photoPath) => setPhotoOpenRequest({ path: photoPath, requestId: Date.now() })}
+          itemId={activeTrackId}
         />
         
         {/* Profile overlay on map when detached - multiple tracks */}
@@ -1169,6 +1285,9 @@ export default function GPXViewer() {
               itemId={activeTrackId} 
               itemType="track" 
               coordinates={activeTrack?.coordinates}
+              onDragSelect={setDragSelectedPhoto}
+              openPhotoRequest={photoOpenRequest}
+              onPhotoOpenHandled={() => setPhotoOpenRequest(null)}
               onFullscreenToggle={(isFullscreen) => {
                 setShowFullscreenGallery(isFullscreen)
                 if (isFullscreen) {
