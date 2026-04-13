@@ -87,10 +87,12 @@ OneDrive/Google Drive/Dropbox sono consigliati per archiviare i dump (`.dump`), 
   - Pulsante 🔍 accanto ad ogni waypoint
   - Cerca indirizzi, città, luoghi con Nominatim (OpenStreetMap)
   - Inserimento automatico coordinate e nome
-- **3 servizi di routing disponibili:**
+- **5 servizi di routing disponibili:**
+  - **BRouter** - Motore ottimizzato per sentieri e trekking ✅ **DEFAULT**
   - **OSRM** - Open Source Routing Machine (gratuito, nessuna API key)
   - **Valhalla** - Open source routing engine (gratuito via server demo)
   - **GraphHopper** - Fast open-source routing (richiede API key gratuita)
+  - **OpenRouteService** - Routing professionale (richiede API key gratuita)
 - Esporta percorsi come GPX
 - **Filtro da URL**: Passa `?routeId=X` per mostrare un percorso specifico
 
@@ -109,6 +111,8 @@ OneDrive/Google Drive/Dropbox sono consigliati per archiviare i dump (`.dump`), 
 - Galleria foto scorrevole con anteprime
 - **Scansione GPS**: estrae coordinate GPS dai metadata EXIF delle foto
 - Foto con GPS visualizzate come marker sulla mappa
+- Geolocalizzazione delle foto: Shift+Click per selezionare la foto quindi click sulla mappa per geolocalizzare
+- Drag & drop marker della foto per spostarlo 
 - Click su un marker foto → popup con anteprima della foto
 
 ### 🗺️ Ricerca POI (Luoghi lungo il percorso)
@@ -164,25 +168,6 @@ L'app sarà disponibile su:
 - `/gpx?trackId=123` - Carica GPX con filtro traccia specifica
 - `/route` - Calcola Percorso (pianifica itinerari)
 - `/route?routeId=123` - Calcola Percorso con filtro percorso specifico
-
-## 🏗️ Struttura
-
-```
-src/
-├── components/
-│   ├── Map.jsx              # Componente mappa Leaflet con supporto multi-traccia
-│   ├── ElevationProfile.jsx # Grafico altimetrico D3
-│   ├── FileUpload.jsx       # Upload singolo/multiplo file GPX
-│   ├── LayerSelector.jsx    # Selettore tipo mappa
-│   ├── SavedTracks.jsx     # Gestione tracce salvate
-│   └── PhotoGallery.jsx     # Galleria foto con EXIF GPS
-├── pages/
-│   ├── HomeMap.jsx          # Pagina home con mappa e segnaposti
-│   ├── GPXViewer.jsx        # Pagina visualizzazione GPX multipla
-│   └── RoutePlanner.jsx     # Pagina pianificazione con routing multiplo
-├── App.jsx                  # Componente principale
-└── main.jsx                 # Entry point React
-```
 
 ## 🛠️ Tecnologie
 
