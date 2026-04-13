@@ -166,29 +166,24 @@ const ROUTING_SERVICES = {
           'racingbike': 'cycling-road'
         }
         const orsProfile = profileMap[profile] || 'foot-hiking'
-        const body = {
-          coordinates: [[parseFloat(sLng), parseFloat(sLat)], [parseFloat(eLng), parseFloat(eLat)]],
-          profile: orsProfile,
-          format: 'json'
-        }
-        const res = await fetch('https://api.openrouteservice.org/v2/directions/' + orsProfile, {
-          method: 'POST',
+        const url = `https://api.openrouteservice.org/v2/directions/${orsProfile}?api_key=${encodeURIComponent(apiKey)}&start=${parseFloat(sLng)},${parseFloat(sLat)}&end=${parseFloat(eLng)},${parseFloat(eLat)}`
+        console.log('ORS request URL:', url);
+        const res = await fetch(url, {
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(body)
+            'Accept': 'application/geo+json;charset=UTF-8'
+          }
         })
         if (!res.ok) {
           console.warn(`OpenRouteService error: ${res.status}`)
           return null
         }
         const data = await res.json()
-        if (data.routes?.[0]?.geometry?.coordinates) {
-          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]])
-          console.log('OpenRouteService coordinates (first 3):', data.routes[0].geometry.coordinates.slice(0, 3))
+        if (data.features?.[0]?.geometry?.coordinates) {
+          const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]])
+          console.log('OpenRouteService coordinates (first 3):', data.features[0].geometry.coordinates.slice(0, 3))
           console.log('OpenRouteService converted coords (first 3):', coords.slice(0, 3))
-          const distance = data.routes[0].summary?.distance || 0
+          const distance = data.features[0].properties?.summary?.distance || 0
           console.log('OpenRouteService distance:', distance)
           return { coords, distance }
         }
@@ -205,6 +200,7 @@ const ROUTING_SERVICES = {
       { key: 'bike', label: '🚴 Mountain Bike' },
       { key: 'racingbike', label: '🚲 Road Bike' }
     ],
+    requiresApiKey: true,
     isAsync: true
   }
 }
@@ -316,6 +312,7 @@ export default function RoutePlanner() {
   const [vehicleProfile, setVehicleProfile] = useState('hike')
   const [isCalculating, setIsCalculating] = useState(false)
   const [graphhopperApiKey, setGraphhopperApiKey] = useState('')
+  const [orsApiKey, setOrsApiKey] = useState('')
   
   // POI State
   const [poiFilter, setPoiFilter] = useState({
@@ -542,7 +539,13 @@ export default function RoutePlanner() {
     try {
       if (service.isAsync) {
         const profile = serviceKey === 'graphhopper' ? ghVehicleProfile : vehicleProfile
-        const result = await service.parse(sLng, sLat, eLng, eLat, graphhopperApiKey, profile)
+        let apiKey = null;
+        if (serviceKey === 'graphhopper') {
+          apiKey = graphhopperApiKey;
+        } else if (serviceKey === 'openrouteservice') {
+          apiKey = orsApiKey;
+        }
+        const result = await service.parse(sLng, sLat, eLng, eLat, apiKey, profile)
         console.log(`${service.name} async result:`, result)
         return result
       }
@@ -1010,6 +1013,36 @@ export default function RoutePlanner() {
                           cursor: 'pointer',
                           fontSize: '12px',
                           fontWeight: ghVehicleProfile === profile.key ? 'bold' : 'normal'
+                        }}
+                      >
+                        {profile.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            {routingService === 'openrouteservice' && (
+              <>
+                <div className="api-key-input"><label>🔑 API Key: <a href="https://openrouteservice.org/dev/#/api-docs" target="_blank" rel="noopener noreferrer" className="api-key-link">Ottieni gratis →</a></label><input id="ors-api-key" type="text" value={orsApiKey} onChange={(e) => setOrsApiKey(e.target.value)} placeholder="Incolla API key OpenRouteService..." />{!orsApiKey && <p className="api-key-warning">⚠️ Senza API key userà linee rette</p>}</div>
+                <div className="vehicle-profile-selector" style={{ marginTop: '10px' }}>
+                  <label>🥾 Tipo di percorso:</label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {ROUTING_SERVICES.openrouteservice.profiles.map(profile => (
+                      <button 
+                        key={profile.key}
+                        className={`profile-btn ${vehicleProfile === profile.key ? 'active' : ''}`}
+                        onClick={() => setVehicleProfile(profile.key)}
+                        title={profile.label}
+                        style={{
+                          padding: '6px 12px',
+                          border: `2px solid ${vehicleProfile === profile.key ? '#2ecc71' : '#ccc'}`,
+                          borderRadius: '4px',
+                          background: vehicleProfile === profile.key ? '#2ecc71' : '#f5f5f5',
+                          color: vehicleProfile === profile.key ? 'white' : '#333',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: vehicleProfile === profile.key ? 'bold' : 'normal'
                         }}
                       >
                         {profile.label}
