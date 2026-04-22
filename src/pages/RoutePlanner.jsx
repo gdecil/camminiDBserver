@@ -839,14 +839,12 @@ export default function RoutePlanner() {
     }
     setGeocodeLoading(true)
     try {
+      // Nominatim requires a delay between requests (max 1 per second).
+      // We remove the 'User-Agent' header as it's restricted in browser fetch.
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&accept-language=it`,
-        {
-          headers: {
-            'User-Agent': 'GPXViewer/1.0 (gpx-viewer-webapp)'
-          }
-        }
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&accept-language=it`
       )
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       // Nominatim returns array directly, not { features: [...] }
       if (Array.isArray(data) && data.length > 0) {
@@ -869,6 +867,19 @@ export default function RoutePlanner() {
     }
     setGeocodeLoading(false)
   }
+
+  // Debounce geocoding search to comply with Nominatim's usage policy (max 1 req/sec)
+  useEffect(() => {
+    if (!geocodeShowResults) return
+    if (geocodeQuery.trim().length < 2) {
+      setGeocodeResults([])
+      return
+    }
+    const timer = setTimeout(() => {
+      searchGeocode(geocodeQuery)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [geocodeQuery, geocodeShowResults])
 
   // Handle geocode selection
   const selectGeocodeResult = (result) => {
@@ -1094,7 +1105,6 @@ export default function RoutePlanner() {
                   value={geocodeQuery}
                   onChange={(e) => {
                     setGeocodeQuery(e.target.value)
-                    searchGeocode(e.target.value)
                   }}
                   autoFocus
                 />
