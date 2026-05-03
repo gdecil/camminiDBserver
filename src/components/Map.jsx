@@ -35,9 +35,84 @@ function MapController({ bounds }) {
   return null
 }
 
-function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop }) {
+function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, onHoverData, routeCoordinates, elevationData }) {
   const map = useMap()
+  const tooltipRef = useRef(null)
+  const fetchTimerRef = useRef(null)
+  const abortControllerRef = useRef(null)
+  const lastMouseLatLng = useRef(null)
+
   useEffect(() => {
+    const hideTooltip = () => {
+      if (tooltipRef.current) {
+        map.removeLayer(tooltipRef.current)
+        tooltipRef.current = null
+      }
+    }
+
+    const showTooltip = (latlng, text) => {
+      const tooltipContent = `<div style="padding: 6px 10px; background: rgba(0,0,0,0.75); color: #fff; border-radius: 6px; font-size: 12px; white-space: nowrap;">${text}</div>`
+      if (!tooltipRef.current) {
+        tooltipRef.current = L.tooltip({ permanent: false, direction: 'top', className: 'map-hover-tooltip', offset: [0, -12] })
+        tooltipRef.current.setLatLng(latlng).setContent(tooltipContent).addTo(map)
+      } else {
+        tooltipRef.current.setLatLng(latlng).setContent(tooltipContent)
+      }
+    }
+
+    const abortPendingFetch = () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+    }
+
+    const fetchElevationAt = async (latlng) => {
+      abortPendingFetch()
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      try {
+        const response = await fetch('/api/elevation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ locations: [{ lat: latlng.lat, lng: latlng.lng }] }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Elevation API ${response.status}`)
+        }
+
+        const data = await response.json()
+        const elevation = data?.results?.[0]?.elevation
+        const text = typeof elevation === 'number' ? `Altitudine: ${Math.round(elevation * 100) / 100} m` : 'Altitudine non disponibile'
+        if (lastMouseLatLng.current) {
+          showTooltip(lastMouseLatLng.current, text)
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') return
+        console.warn('Elevation fetch failed:', error)
+        if (lastMouseLatLng.current) {
+          showTooltip(lastMouseLatLng.current, 'Altitudine non disponibile')
+        }
+      } finally {
+        abortControllerRef.current = null
+      }
+    }
+
+    const scheduleElevationFetch = (latlng) => {
+      lastMouseLatLng.current = latlng
+      if (fetchTimerRef.current) {
+        clearTimeout(fetchTimerRef.current)
+      }
+      showTooltip(latlng, 'Calcolo quota...')
+      fetchTimerRef.current = setTimeout(() => {
+        fetchTimerRef.current = null
+        fetchElevationAt(latlng)
+      }, 220)
+    }
+
     const handleClick = (e) => {
       if (dragSelectedPhoto && onPhotoDrop) {
         onPhotoDrop(e.latlng.lat, e.latlng.lng)
@@ -45,9 +120,50 @@ function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop }) {
         onMapClick(e)
       }
     }
+
+    const handleMouseMove = (e) => {
+      const mouseLat = e.latlng.lat
+      const mouseLng = e.latlng.lng
+      if (routeCoordinates && routeCoordinates.length > 0 && onHoverIndex) {
+        let closestIndex = 0
+        let minDistance = Infinity
+        for (let i = 0; i < routeCoordinates.length; i++) {
+          const coord = routeCoordinates[i]
+          const distance = Math.sqrt(Math.pow(coord[0] - mouseLat, 2) + Math.pow(coord[1] - mouseLng, 2))
+          if (distance < minDistance) {
+            minDistance = distance
+            closestIndex = i
+          }
+        }
+        onHoverIndex(closestIndex)
+      }
+      scheduleElevationFetch(e.latlng)
+    }
+
+    const handleMouseOut = () => {
+      if (fetchTimerRef.current) {
+        clearTimeout(fetchTimerRef.current)
+        fetchTimerRef.current = null
+      }
+      abortPendingFetch()
+      hideTooltip()
+    }
+
     map.on('click', handleClick)
-    return () => { map.off('click', handleClick) }
-  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop])
+    map.on('mousemove', handleMouseMove)
+    map.on('mouseout', handleMouseOut)
+    return () => {
+      if (fetchTimerRef.current) {
+        clearTimeout(fetchTimerRef.current)
+        fetchTimerRef.current = null
+      }
+      abortPendingFetch()
+      hideTooltip()
+      map.off('click', handleClick)
+      map.off('mousemove', handleMouseMove)
+      map.off('mouseout', handleMouseOut)
+    }
+  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, routeCoordinates])
   return null
 }
 
@@ -169,9 +285,9 @@ export default function Map({
   trackCoordinates = [], startMarker = null, endMarker = null, routeCoordinates = [],
   center = [41.9029, 12.4964], zoom = 13, onMapClick = null, currentLayer = 'OpenStreetMap',
   waypoints = [], onWaypointDragEnd = null, draggable = true, selectedIndex = null,
-  onHover = null, markers = [], onMarkerClick = null, onPhotoClick = null, multipleTracks = [],
+  onHover = null, onHoverData = null, elevationData = null, markers = [], onMarkerClick = null, onPhotoClick = null, multipleTracks = [],
   hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false,
-  dragSelectedPhoto = null, onPhotoDrop = null, itemId = null
+  dragSelectedPhoto = null, onPhotoDrop = null, itemId = null, autoFitBounds = true
 }) {
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
   const allCoords = multiTrackCoords.length > 0 ? [...multiTrackCoords, ...trackCoordinates, ...routeCoordinates] : [...trackCoordinates, ...routeCoordinates]
@@ -200,8 +316,8 @@ export default function Map({
         {waypoints.length > 0 && onWaypointDragEnd && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable} />}
         {startMarker && <Marker position={startMarker} icon={startIcon} />}
         {endMarker && <Marker position={endMarker} icon={endIcon} />}
-        {bounds && <MapController bounds={bounds} />}
-        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} />
+        {bounds && autoFitBounds && <MapController bounds={bounds} />}
+        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} onHoverIndex={onHover} onHoverData={onHoverData} routeCoordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} elevationData={elevationData} />
         {selectedIndex !== null && (routeCoordinates.length > 0 || trackCoordinates.length > 0) && <SelectedPointMarker coordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} selectedIndex={selectedIndex} />}
         {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
           <Marker position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]} icon={L.divIcon({ className: 'loaded-track-hover-marker', html: `<div style="background-color: ${hoverTrack.color || '#ff9800'}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] })} interactive={false} zIndexOffset={1000} />

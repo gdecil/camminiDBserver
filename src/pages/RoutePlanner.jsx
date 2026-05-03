@@ -984,7 +984,7 @@ export default function RoutePlanner() {
           hoverTrack={hoveredRoute ? { coordinates: hoveredRoute.coordinates, color: hoveredRoute.color, index: loadedTrackHoverIndex } : null}
           onMapClick={handleMapClick} currentLayer={currentLayer} waypoints={validWaypoints.map((wp, i) => ({ position: [parseFloat(wp.lat), parseFloat(wp.lng)], color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], label: wp.name }))}
           poiMarker={selectedPoi ? { position: [selectedPoi.lat, selectedPoi.lng], icon: selectedPoi.icon, name: selectedPoi.name } : null} showHikingOverlay={showHikingOverlay}
-          onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} />
+          onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} elevationData={elevationData} autoFitBounds={false} />
         {showRouteProfile && routeGPXContent && elevationData && !loadingElevation && <div className="route-profile-container"><ElevationProfile key={profileKey} gpxContent={routeGPXContent} isOverlay={false} routeCoordinates={routeCoordinates} totalDistance={distance ? parseFloat(distance) : null} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} /></div>}
       </div>
       {!isFullscreen && <div className="sidebar" style={{ width: sidebarWidth }}>
