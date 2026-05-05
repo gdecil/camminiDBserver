@@ -35,7 +35,17 @@ function MapController({ bounds }) {
   return null
 }
 
-function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, onHoverData, routeCoordinates, elevationData, showElevationTooltip = true }) {
+function MapInstance({ mapRef }) {
+  const map = useMap()
+  useEffect(() => {
+    if (mapRef) {
+      mapRef.current = map
+    }
+  }, [map, mapRef])
+  return null
+}
+
+function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, onHoverData, routeCoordinates, elevationData, showElevationTooltip = true, onMapMove }) {
   const map = useMap()
   const tooltipRef = useRef(null)
   const fetchTimerRef = useRef(null)
@@ -43,6 +53,13 @@ function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, o
   const lastMouseLatLng = useRef(null)
 
   useEffect(() => {
+    // Invia la posizione iniziale della mappa al mount
+    if (onMapMove) {
+      const center = map.getCenter()
+      const zoom = map.getZoom()
+      onMapMove([center.lat, center.lng], zoom)
+    }
+
     const hideTooltip = () => {
       if (tooltipRef.current) {
         map.removeLayer(tooltipRef.current)
@@ -150,9 +167,18 @@ function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, o
       hideTooltip()
     }
 
+    const handleMoveEnd = () => {
+      if (onMapMove) {
+        const center = map.getCenter()
+        const zoom = map.getZoom()
+        onMapMove([center.lat, center.lng], zoom)
+      }
+    }
+
     map.on('click', handleClick)
     map.on('mousemove', handleMouseMove)
     map.on('mouseout', handleMouseOut)
+    map.on('moveend', handleMoveEnd)
     return () => {
       if (fetchTimerRef.current) {
         clearTimeout(fetchTimerRef.current)
@@ -163,8 +189,9 @@ function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, o
       map.off('click', handleClick)
       map.off('mousemove', handleMouseMove)
       map.off('mouseout', handleMouseOut)
+      map.off('moveend', handleMoveEnd)
     }
-  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, routeCoordinates, showElevationTooltip])
+  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, routeCoordinates, showElevationTooltip, onMapMove])
   return null
 }
 
@@ -288,7 +315,8 @@ export default function Map({
   waypoints = [], onWaypointDragEnd = null, draggable = true, selectedIndex = null,
   onHover = null, onHoverData = null, elevationData = null, markers = [], onMarkerClick = null, onPhotoClick = null, multipleTracks = [],
   hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false, showElevationTooltip = true,
-  dragSelectedPhoto = null, onPhotoDrop = null, itemId = null, autoFitBounds = true
+  dragSelectedPhoto = null, onPhotoDrop = null, itemId = null, autoFitBounds = true,
+  onMapMove = null, mapRef = null
 }) {
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
   const allCoords = multiTrackCoords.length > 0 ? [...multiTrackCoords, ...trackCoordinates, ...routeCoordinates] : [...trackCoordinates, ...routeCoordinates]
@@ -317,8 +345,9 @@ export default function Map({
         {waypoints.length > 0 && onWaypointDragEnd && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable} />}
         {startMarker && <Marker position={startMarker} icon={startIcon} />}
         {endMarker && <Marker position={endMarker} icon={endIcon} />}
+        <MapInstance mapRef={mapRef} />
         {bounds && autoFitBounds && <MapController bounds={bounds} />}
-        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} onHoverIndex={onHover} onHoverData={onHoverData} routeCoordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} elevationData={elevationData} showElevationTooltip={showElevationTooltip} />
+        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} onHoverIndex={onHover} onHoverData={onHoverData} routeCoordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} elevationData={elevationData} showElevationTooltip={showElevationTooltip} onMapMove={onMapMove} />
         {selectedIndex !== null && (routeCoordinates.length > 0 || trackCoordinates.length > 0) && <SelectedPointMarker coordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} selectedIndex={selectedIndex} />}
         {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
           <Marker position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]} icon={L.divIcon({ className: 'loaded-track-hover-marker', html: `<div style="background-color: ${hoverTrack.color || '#ff9800'}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] })} interactive={false} zIndexOffset={1000} />
