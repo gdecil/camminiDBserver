@@ -32,6 +32,8 @@ export default function GPXViewer() {
   const [sidebarWidth, setSidebarWidth] = useState(520)
   const [sidebarMode, setSidebarMode] = useState('wide')
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
+  const [autoFitTrack, setAutoFitTrack] = useState(true)
+  const [elevationTooltip, setElevationTooltip] = useState(true)
   const [largeLabels, setLargeLabels] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
@@ -1053,6 +1055,10 @@ export default function GPXViewer() {
           onLayerChange={setCurrentLayer} 
           showHikingOverlay={showHikingOverlay}
           onOverlayToggle={setShowHikingOverlay}
+          autoFitTrack={autoFitTrack}
+          onAutoFitToggle={setAutoFitTrack}
+          elevationTooltip={elevationTooltip}
+          onElevationTooltipToggle={setElevationTooltip}
           largeLabels={largeLabels}
           onLargeLabelsToggle={setLargeLabels}
         />
@@ -1104,6 +1110,7 @@ export default function GPXViewer() {
           selectedIndex={selectedIndex}
           onHover={(index) => setSelectedIndex(index)}
           showHikingOverlay={showHikingOverlay}
+          showElevationTooltip={elevationTooltip}
           photoMarkers={photoMarkers}
           dragSelectedPhoto={dragSelectedPhoto}
           onPhotoDrop={(lat, lng, photoPath) => handlePhotoDrop(lat, lng, photoPath)}

@@ -1,7 +1,7 @@
 import './LayerSelector.css'
 import { LAYERS } from './mapConfig'
 
-export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, largeLabels, onLargeLabelsToggle }) {
+export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, elevationTooltip, onElevationTooltipToggle, largeLabels, onLargeLabelsToggle }) {
   return (
     <div className={`layer-selector ${largeLabels ? 'large-labels' : ''}`}>
       <div className="selector-group">
@@ -45,6 +45,16 @@ export default function LayerSelector({ currentLayer, onLayerChange, showHikingO
                 onChange={(e) => onAutoFitToggle(e.target.checked)} 
               />
               📍 Zoom traccia
+            </label>
+          )}
+          {onElevationTooltipToggle && (
+            <label style={{ cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '6px' }}>
+              <input 
+                type="checkbox" 
+                checked={elevationTooltip} 
+                onChange={(e) => onElevationTooltipToggle(e.target.checked)} 
+              />
+              📏 Tooltip elevazione
             </label>
           )}
         </div>

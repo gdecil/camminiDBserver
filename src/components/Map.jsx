@@ -35,7 +35,7 @@ function MapController({ bounds }) {
   return null
 }
 
-function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, onHoverData, routeCoordinates, elevationData }) {
+function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, onHoverData, routeCoordinates, elevationData, showElevationTooltip = true }) {
   const map = useMap()
   const tooltipRef = useRef(null)
   const fetchTimerRef = useRef(null)
@@ -51,6 +51,7 @@ function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, o
     }
 
     const showTooltip = (latlng, text) => {
+      if (!showElevationTooltip) return
       const tooltipContent = `<div style="padding: 6px 10px; background: rgba(0,0,0,0.75); color: #fff; border-radius: 6px; font-size: 12px; white-space: nowrap;">${text}</div>`
       if (!tooltipRef.current) {
         tooltipRef.current = L.tooltip({ permanent: false, direction: 'top', className: 'map-hover-tooltip', offset: [0, -12] })
@@ -163,7 +164,7 @@ function MapEvents({ onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, o
       map.off('mousemove', handleMouseMove)
       map.off('mouseout', handleMouseOut)
     }
-  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, routeCoordinates])
+  }, [map, onMapClick, dragSelectedPhoto, onPhotoDrop, onHoverIndex, routeCoordinates, showElevationTooltip])
   return null
 }
 
@@ -286,7 +287,7 @@ export default function Map({
   center = [41.9029, 12.4964], zoom = 13, onMapClick = null, currentLayer = 'OpenStreetMap',
   waypoints = [], onWaypointDragEnd = null, draggable = true, selectedIndex = null,
   onHover = null, onHoverData = null, elevationData = null, markers = [], onMarkerClick = null, onPhotoClick = null, multipleTracks = [],
-  hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false,
+  hoverTrack = null, poiMarker = null, photoMarkers = [], showHikingOverlay = false, showElevationTooltip = true,
   dragSelectedPhoto = null, onPhotoDrop = null, itemId = null, autoFitBounds = true
 }) {
   const multiTrackCoords = multipleTracks.flatMap(t => t.coordinates)
@@ -317,7 +318,7 @@ export default function Map({
         {startMarker && <Marker position={startMarker} icon={startIcon} />}
         {endMarker && <Marker position={endMarker} icon={endIcon} />}
         {bounds && autoFitBounds && <MapController bounds={bounds} />}
-        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} onHoverIndex={onHover} onHoverData={onHoverData} routeCoordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} elevationData={elevationData} />
+        <MapEvents onMapClick={onMapClick} dragSelectedPhoto={dragSelectedPhoto} onPhotoDrop={onPhotoDrop} onHoverIndex={onHover} onHoverData={onHoverData} routeCoordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} elevationData={elevationData} showElevationTooltip={showElevationTooltip} />
         {selectedIndex !== null && (routeCoordinates.length > 0 || trackCoordinates.length > 0) && <SelectedPointMarker coordinates={routeCoordinates.length > 0 ? routeCoordinates : trackCoordinates} selectedIndex={selectedIndex} />}
         {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
           <Marker position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]} icon={L.divIcon({ className: 'loaded-track-hover-marker', html: `<div style="background-color: ${hoverTrack.color || '#ff9800'}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] })} interactive={false} zIndexOffset={1000} />
