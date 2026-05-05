@@ -346,6 +346,16 @@ export default function RoutePlanner() {
     }
   }
 
+  const openReliefMaps = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const lat = center.lat.toFixed(5)
+      const lng = center.lng.toFixed(5)
+      const url = `https://app.reliefmaps.io/#${lat},${lng},0,0,2500,0,0`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   // Geocoding state
   const [geocodeQuery, setGeocodeQuery] = useState('')
   const [geocodeResults, setGeocodeResults] = useState([])
@@ -993,7 +1003,7 @@ export default function RoutePlanner() {
   return (
     <div className={`route-planner ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       <div className="map-section">
-        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} elevationTooltip={elevationTooltip} onElevationTooltipToggle={setElevationTooltip} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} onOpenWaymarkedTrails={openWaymarkedTrails} />
+        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} elevationTooltip={elevationTooltip} onElevationTooltipToggle={setElevationTooltip} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} onOpenWaymarkedTrails={openWaymarkedTrails} onOpenReliefMaps={openReliefMaps} />
         <button className="fullscreen-btn" onClick={() => { !isFullscreen ? document.documentElement.requestFullscreen?.() : document.exitFullscreen?.(); setIsFullscreen(!isFullscreen) }} title={isFullscreen ? 'Esci' : 'Fullscreen'}>{isFullscreen ? '✕' : '⛶'}</button>
         <Map trackCoordinates={routeCoordinates} startMarker={validWaypoints.length > 0 ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)] : null}
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
