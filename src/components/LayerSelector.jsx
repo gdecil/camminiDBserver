@@ -1,7 +1,7 @@
 import './LayerSelector.css'
 import { LAYERS } from './mapConfig'
 
-export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, largeLabels, onLargeLabelsToggle }) {
+export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, largeLabels, onLargeLabelsToggle }) {
   return (
     <div className={`layer-selector ${largeLabels ? 'large-labels' : ''}`}>
       <div className="selector-group">
@@ -37,6 +37,16 @@ export default function LayerSelector({ currentLayer, onLayerChange, showHikingO
             />
             🥾 Sentieri (Overlay)
           </label>
+          {onAutoFitToggle && (
+            <label style={{ cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '6px' }}>
+              <input 
+                type="checkbox" 
+                checked={autoFitTrack} 
+                onChange={(e) => onAutoFitToggle(e.target.checked)} 
+              />
+              📍 Zoom traccia
+            </label>
+          )}
         </div>
       )}
     </div>

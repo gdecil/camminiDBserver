@@ -304,6 +304,7 @@ export default function RoutePlanner() {
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
+  const [autoFitTrack, setAutoFitTrack] = useState(false)
   const [largeLabels, setLargeLabels] = useState(false)
   const routeIdParam = searchParams.get('routeId')
   const [filterText, setFilterText] = useState('')
@@ -976,7 +977,7 @@ export default function RoutePlanner() {
   return (
     <div className={`route-planner ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       <div className="map-section">
-        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} />
+        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} />
         <button className="fullscreen-btn" onClick={() => { !isFullscreen ? document.documentElement.requestFullscreen?.() : document.exitFullscreen?.(); setIsFullscreen(!isFullscreen) }} title={isFullscreen ? 'Esci' : 'Fullscreen'}>{isFullscreen ? '✕' : '⛶'}</button>
         <Map trackCoordinates={routeCoordinates} startMarker={validWaypoints.length > 0 ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)] : null}
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
@@ -984,7 +985,7 @@ export default function RoutePlanner() {
           hoverTrack={hoveredRoute ? { coordinates: hoveredRoute.coordinates, color: hoveredRoute.color, index: loadedTrackHoverIndex } : null}
           onMapClick={handleMapClick} currentLayer={currentLayer} waypoints={validWaypoints.map((wp, i) => ({ position: [parseFloat(wp.lat), parseFloat(wp.lng)], color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], label: wp.name }))}
           poiMarker={selectedPoi ? { position: [selectedPoi.lat, selectedPoi.lng], icon: selectedPoi.icon, name: selectedPoi.name } : null} showHikingOverlay={showHikingOverlay}
-          onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} elevationData={elevationData} autoFitBounds={false} />
+          onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} elevationData={elevationData} autoFitBounds={autoFitTrack && routeCoordinates.length > 0} />
         {showRouteProfile && routeGPXContent && elevationData && !loadingElevation && <div className="route-profile-container"><ElevationProfile key={profileKey} gpxContent={routeGPXContent} isOverlay={false} routeCoordinates={routeCoordinates} totalDistance={distance ? parseFloat(distance) : null} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} /></div>}
       </div>
       {!isFullscreen && <div className="sidebar" style={{ width: sidebarWidth }}>
