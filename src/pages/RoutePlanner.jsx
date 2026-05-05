@@ -304,7 +304,7 @@ export default function RoutePlanner() {
   const [isResizing, setIsResizing] = useState(false)
   const [searchParams] = useSearchParams()
   const [showHikingOverlay, setShowHikingOverlay] = useState(false)
-  const [autoFitTrack, setAutoFitTrack] = useState(false)
+  const [autoFitTrack, setAutoFitTrack] = useState(true)
   const [largeLabels, setLargeLabels] = useState(false)
   const routeIdParam = searchParams.get('routeId')
   const [filterText, setFilterText] = useState('')
