@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { FixedSizeList as List } from 'react-window'
 import { useSearchParams } from 'react-router-dom'
 import Map from '../components/Map'
@@ -45,6 +45,29 @@ export default function GPXViewer() {
   const [tracks, setTracks] = useState([]) // Array of {id, name, coordinates, elevation, color, visible, gpxContent, waypoints}
   const [activeTrackId, setActiveTrackId] = useState(null) // Currently selected track for profile view
   const [trackFilterActive, setTrackFilterActive] = useState(!!trackIdParam)
+  const mapRef = useRef(null)
+
+  const openWaymarkedTrails = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const zoom = mapRef.current.getZoom()
+      const zoomStr = zoom.toFixed(1)
+      const lat = center.lat.toFixed(4)
+      const lng = center.lng.toFixed(4)
+      const url = `https://hiking.waymarkedtrails.org/#?map=${zoomStr}/${lat}/${lng}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const openReliefMaps = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const lat = center.lat.toFixed(5)
+      const lng = center.lng.toFixed(5)
+      const url = `https://app.reliefmaps.io/#${lat},${lng},0,0,2500,0,0`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
 
   // Sidebar resize handlers
   const handleResizeStart = (e) => {
@@ -1061,6 +1084,8 @@ export default function GPXViewer() {
           onElevationTooltipToggle={setElevationTooltip}
           largeLabels={largeLabels}
           onLargeLabelsToggle={setLargeLabels}
+          onOpenWaymarkedTrails={openWaymarkedTrails}
+          onOpenReliefMaps={openReliefMaps}
         />
         
         <button 
@@ -1116,6 +1141,7 @@ export default function GPXViewer() {
           onPhotoDrop={(lat, lng, photoPath) => handlePhotoDrop(lat, lng, photoPath)}
           onPhotoClick={(photoPath) => setPhotoOpenRequest({ path: photoPath, requestId: Date.now() })}
           itemId={activeTrackId}
+          mapRef={mapRef}
         />
         
         {/* Profile overlay on map when detached - multiple tracks */}
