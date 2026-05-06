@@ -179,7 +179,8 @@ export default function GPXViewer() {
   const regenerateElevationsFromApi = async (coordinates) => {
     if (!Array.isArray(coordinates) || coordinates.length === 0) return []
 
-    const sampledCoords = buildCoordinateSample(coordinates, 100)
+    // Use all coordinates (no sampling) for maximum accuracy with local API
+    const sampledCoords = buildCoordinateSample(coordinates, coordinates.length)
     const response = await fetch(`${API_URL}/elevation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1141,6 +1142,7 @@ export default function GPXViewer() {
           onPhotoDrop={(lat, lng, photoPath) => handlePhotoDrop(lat, lng, photoPath)}
           onPhotoClick={(photoPath) => setPhotoOpenRequest({ path: photoPath, requestId: Date.now() })}
           itemId={activeTrackId}
+          autoFitBounds={autoFitTrack && (allCoordinates.length > 0 || trackCoordinates.length > 0)}
           mapRef={mapRef}
         />
         

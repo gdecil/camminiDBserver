@@ -272,14 +272,31 @@ export default function ElevationProfile({
     const maxEle = d3.max(data, d => d.elevation)
     const totalDist = d3.max(data, d => d.distance)
 
+    // Calculate ascent and descent
+    let ascent = 0, descent = 0
+    for (let i = 1; i < data.length; i++) {
+      const diff = data[i].elevation - data[i-1].elevation
+      if (diff > 0) ascent += diff
+      else descent += Math.abs(diff)
+    }
+
     g.append('text').attr('x', innerWidth - 5).attr('y', yScale(maxEle) - 3)
       .attr('text-anchor', 'end').attr('fill', '#2e7d32').attr('font-size', '9px').attr('font-weight', 'bold')
       .text(`↑ ${maxEle.toFixed(0)}m`)
     g.append('text').attr('x', innerWidth - 5).attr('y', yScale(minEle) + 10)
       .attr('text-anchor', 'end').attr('fill', '#666').attr('font-size', '9px')
       .text(`↓ ${minEle.toFixed(0)}m`)
-    g.append('text').attr('x', innerWidth / 2).attr('y', -8)
-      .attr('text-anchor', 'middle').attr('fill', '#333').attr('font-size', '10px').attr('font-weight', 'bold')
+
+    // Stats list on the left side of the chart header
+    const statsX = 0
+    g.append('text').attr('x', statsX).attr('y', -17)
+      .attr('text-anchor', 'start').attr('fill', '#e53935').attr('font-size', '9px').attr('font-weight', 'bold')
+      .text(`⬆️ Salita: +${ascent.toFixed(0)}m`)
+    g.append('text').attr('x', statsX).attr('y', -5)
+      .attr('text-anchor', 'start').attr('fill', '#1e88e5').attr('font-size', '9px').attr('font-weight', 'bold')
+      .text(`⬇️ Discesa: -${descent.toFixed(0)}m`)
+    g.append('text').attr('x', innerWidth).attr('y', -11)
+      .attr('text-anchor', 'end').attr('fill', '#333').attr('font-size', '10px').attr('font-weight', 'bold')
       .text(`${totalDist.toFixed(2)} km`)
   }
 

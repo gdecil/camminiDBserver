@@ -380,9 +380,9 @@ app.post('/api/elevation', async (req, res) => {
     if (!locations || !Array.isArray(locations)) {
         return res.status(400).json({ error: 'Locations array required', received: typeof locations });
     }
-    if (locations.length > 100) {
-        const step = Math.floor(locations.length / 100);
-        locations = locations.filter((_, i) => i % step === 0 || i === locations.length - 1).slice(0, 100);
+    if (locations.length > 2000) {
+        const step = Math.floor(locations.length / 2000);
+        locations = locations.filter((_, i) => i % step === 0 || i === locations.length - 1).slice(0, 2000);
     }
     const locationString = locations.map((loc) => `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`).join('|');
     try {

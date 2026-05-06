@@ -629,10 +629,8 @@ export default function RoutePlanner() {
   const calculateElevation = async (coordinates) => {
     if (coordinates?.length < 2) return; setLoadingElevation(true)
     try {
-      const step = Math.max(1, Math.floor(coordinates.length / 100))
-      const sampledCoords = []; for (let i = 0; i < coordinates.length; i += step) sampledCoords.push(coordinates[i])
-      if (sampledCoords[sampledCoords.length - 1] !== coordinates[coordinates.length - 1]) sampledCoords.push(coordinates[coordinates.length - 1])
-      const response = await fetch(`${API_URL}/elevation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locations: sampledCoords.map(c => ({ lat: c[0], lng: c[1] })) }) })
+      // Use all coordinates (no sampling) for maximum accuracy with local API
+      const response = await fetch(`${API_URL}/elevation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locations: coordinates.map(c => ({ lat: c[0], lng: c[1] })) }) })
       const data = await response.json()
       if (data.status === 'OK' && data.results) {
         const elevations = data.results.map(r => r.elevation).filter(e => e !== null)
@@ -1011,7 +1009,7 @@ export default function RoutePlanner() {
           hoverTrack={hoveredRoute ? { coordinates: hoveredRoute.coordinates, color: hoveredRoute.color, index: loadedTrackHoverIndex } : null}
           onMapClick={handleMapClick} currentLayer={currentLayer} waypoints={validWaypoints.map((wp, i) => ({ position: [parseFloat(wp.lat), parseFloat(wp.lng)], color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], label: wp.name }))}
           poiMarker={selectedPoi ? { position: [selectedPoi.lat, selectedPoi.lng], icon: selectedPoi.icon, name: selectedPoi.name } : null} showHikingOverlay={showHikingOverlay} showElevationTooltip={elevationTooltip}
-          onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} elevationData={elevationData} autoFitBounds={autoFitTrack && routeCoordinates.length > 0} mapRef={mapRef} />
+          onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} elevationData={elevationData} autoFitBounds={autoFitTrack && (routeCoordinates.length > 0 || validWaypoints.length > 0)} mapRef={mapRef} />
         {showRouteProfile && routeGPXContent && elevationData && !loadingElevation && <div className="route-profile-container"><ElevationProfile key={profileKey} gpxContent={routeGPXContent} isOverlay={false} routeCoordinates={routeCoordinates} totalDistance={distance ? parseFloat(distance) : null} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} /></div>}
       </div>
       {!isFullscreen && <div className="sidebar" style={{ width: sidebarWidth }}>
@@ -1163,7 +1161,7 @@ export default function RoutePlanner() {
             <button className="calc-btn" onClick={calculateMultiRoute} disabled={isCalculating}>{isCalculating ? '⏳ Calcolo...' : `🚶 Calcola (${ROUTING_SERVICES[routingService]?.name || routingService})`}</button>
             {waypoints.length > 0 && <button className="clear-btn" onClick={clearAllWaypoints}>🗑️ Svuota</button>}
           </div>
-          {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button><button className="google-maps-btn primary" onClick={openGoogleMyMaps} title="Scarica KML e importa in Google My Maps">🗺️ Scarica per Google My Maps</button></div>}</div>}
+          {distance && <div className="distance-result"><strong>Distanza Totale: {distance} km</strong>{loadingElevation && <div className="elevation-loading">📊 Calcolo dislivelli...</div>}{elevationData && !loadingElevation && <div className="elevation-stats"><div className="elevation-item ascent">⬆️ Salita: <strong>{elevationData.ascent} m</strong></div><div className="elevation-item descent">⬇️ Discesa: <strong>{elevationData.descent} m</strong></div><div className="elevation-range">📍 Altitudine: {elevationData.minElevation}m - {elevationData.maxElevation}m</div></div>}<div className="route-buttons"><button className="show-profile-btn" onClick={() => setShowRouteProfile(!showRouteProfile)} disabled={!elevationData || loadingElevation}>{showRouteProfile ? '📍 Nascondi' : '📊 Mostra profilo'}</button><button className="save-route-btn" onClick={handleSaveRoute}>💾 Salva</button><button className="google-maps-btn primary" onClick={openGoogleMyMaps} title="Scarica KML e importa in Google My Maps">🗺️ Scarica per Google My Maps</button></div></div>}
         </CollapsibleSection>
 
         {savedRoutes.length > 0 && <CollapsibleSection id="savedRoutes" title={`📁 Itinerari Salvati (${getSortedRoutes().length})`} defaultOpen={false}>
