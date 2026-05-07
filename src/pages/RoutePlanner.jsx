@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import Map from '../components/Map'
 import LayerSelector from '../components/LayerSelector'
 import ElevationProfile from '../components/ElevationProfile'
+import { useAppContext } from '../context/AppContext'
 import './RoutePlanner.css'
 
 const API_URL = '/api'
@@ -276,13 +277,17 @@ function CollapsibleSection({ id, title, defaultOpen, children, className = '', 
 }
 
 export default function RoutePlanner() {
+  const { currentLayer: ctxLayer, setCurrentLayer: setCtxLayer, pageState, updatePageState, resetPage } = useAppContext()
+  const routeState = pageState.route
+  const stateInitialized = useRef(false)
+
   const [waypoints, setWaypoints] = useState([])
   const [routeCoordinates, setRouteCoordinates] = useState([])
   const [distance, setDistance] = useState(null)
   const [elevationData, setElevationData] = useState(null)
   const [loadingElevation, setLoadingElevation] = useState(false)
   const [message, setMessage] = useState(null)
-  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap')
+  const [currentLayer, setCurrentLayer] = useState(ctxLayer)
   const [savedRoutes, setSavedRoutes] = useState([])
   const [loadedRouteIds, setLoadedRouteIds] = useState([])
   const [loadedRoutes, setLoadedRoutes] = useState([])
@@ -357,6 +362,62 @@ export default function RoutePlanner() {
   }
 
   // Geocoding state
+  // Restore persisted state from context on mount
+  useEffect(() => {
+    if (stateInitialized.current) return
+    stateInitialized.current = true
+    const s = routeState
+    if (s.waypoints?.length) setWaypoints(s.waypoints)
+    if (s.routeCoordinates?.length) setRouteCoordinates(s.routeCoordinates)
+    if (s.distance) setDistance(s.distance)
+    if (s.elevationData) setElevationData(s.elevationData)
+    if (s.segments?.length) setSegments(s.segments)
+    if (s.showRouteProfile) setShowRouteProfile(s.showRouteProfile)
+    if (s.selectedIndex !== null) setSelectedIndex(s.selectedIndex)
+    if (s.autoFitTrack !== undefined) setAutoFitTrack(s.autoFitTrack)
+    if (s.elevationTooltip !== undefined) setElevationTooltip(s.elevationTooltip)
+    if (s.showHikingOverlay) setShowHikingOverlay(s.showHikingOverlay)
+    if (s.largeLabels) setLargeLabels(s.largeLabels)
+  }, [])
+
+  // Sync layer changes to context
+  useEffect(() => {
+    setCtxLayer(currentLayer)
+  }, [currentLayer])
+
+  // Save state to context whenever tracked values change
+  useEffect(() => {
+    updatePageState('route', {
+      waypoints,
+      routeCoordinates,
+      distance,
+      elevationData,
+      segments,
+      showRouteProfile,
+      selectedIndex,
+      autoFitTrack,
+      elevationTooltip,
+      showHikingOverlay,
+      largeLabels,
+    })
+  }, [waypoints, routeCoordinates, distance, elevationData, segments, showRouteProfile, selectedIndex, autoFitTrack, elevationTooltip, showHikingOverlay, largeLabels])
+
+  const handleResetPage = () => {
+    resetPage('route')
+    setWaypoints([])
+    setRouteCoordinates([])
+    setDistance(null)
+    setElevationData(null)
+    setSegments([])
+    setShowRouteProfile(false)
+    setSelectedIndex(null)
+    setAutoFitTrack(true)
+    setElevationTooltip(true)
+    setShowHikingOverlay(false)
+    setLargeLabels(false)
+    showMessage('Pagina resettata', 'info')
+  }
+
   const [geocodeQuery, setGeocodeQuery] = useState('')
   const [geocodeResults, setGeocodeResults] = useState([])
   const [geocodeLoading, setGeocodeLoading] = useState(false)
@@ -1021,6 +1082,16 @@ export default function RoutePlanner() {
           </button>
         </div>
         
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', marginBottom: '8px' }}>
+          <button
+            className="reset-page-btn"
+            onClick={handleResetPage}
+            title="Resetta la pagina"
+            style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff5f5', color: '#c0392b', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}
+          >
+            🔄 Reset
+          </button>
+        </div>
         <CollapsibleSection id="itinerary" title="🗺️ Itinerario Multi-Tappa" defaultOpen={true}>
           <p className="hint">Aggiungi punti di passaggio</p>
           <div className="routing-service-selector">

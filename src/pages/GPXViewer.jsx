@@ -7,6 +7,7 @@ import SavedTracks from '../components/SavedTracks'
 import LayerSelector from '../components/LayerSelector'
 import ElevationProfile from '../components/ElevationProfile'
 import PhotoGallery from '../components/PhotoGallery'
+import { useAppContext } from '../context/AppContext'
 import './GPXViewer.css'
 
 const API_URL = '/api'
@@ -19,13 +20,17 @@ const TRACK_COLORS = [
 ]
 
 export default function GPXViewer() {
+  const { currentLayer: ctxLayer, setCurrentLayer: setCtxLayer, pageState, updatePageState, resetPage } = useAppContext()
+  const gpxState = pageState.gpx
+  const stateInitialized = useRef(false)
+
   const [trackCoordinates, setTrackCoordinates] = useState([])
   const [gpxContent, setGpxContent] = useState(null)
   const [currentElevations, setCurrentElevations] = useState(null)
   const [savedTracks, setSavedTracks] = useState({})
   const [message, setMessage] = useState(null)
   const [elevationStatus, setElevationStatus] = useState(null)
-  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap')
+  const [currentLayer, setCurrentLayer] = useState(ctxLayer)
   const [isProfileDetached, setIsProfileDetached] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(null)
@@ -42,10 +47,69 @@ export default function GPXViewer() {
   const [currentWaypoints, setCurrentWaypoints] = useState([])
   
   // Multiple tracks state
-  const [tracks, setTracks] = useState([]) // Array of {id, name, coordinates, elevation, color, visible, gpxContent, waypoints}
-  const [activeTrackId, setActiveTrackId] = useState(null) // Currently selected track for profile view
+  const [tracks, setTracks] = useState([])
+  const [activeTrackId, setActiveTrackId] = useState(null)
   const [trackFilterActive, setTrackFilterActive] = useState(!!trackIdParam)
   const mapRef = useRef(null)
+
+  // Restore persisted state from context on mount
+  useEffect(() => {
+    if (stateInitialized.current) return
+    stateInitialized.current = true
+    const s = gpxState
+    if (s.trackCoordinates?.length) setTrackCoordinates(s.trackCoordinates)
+    if (s.gpxContent) setGpxContent(s.gpxContent)
+    if (s.currentElevations) setCurrentElevations(s.currentElevations)
+    if (s.tracks?.length) setTracks(s.tracks)
+    if (s.activeTrackId) setActiveTrackId(s.activeTrackId)
+    if (s.currentWaypoints?.length) setCurrentWaypoints(s.currentWaypoints)
+    if (s.autoFitTrack !== undefined) setAutoFitTrack(s.autoFitTrack)
+    if (s.elevationTooltip !== undefined) setElevationTooltip(s.elevationTooltip)
+    if (s.isProfileDetached) setIsProfileDetached(s.isProfileDetached)
+    if (s.selectedIndex !== null) setSelectedIndex(s.selectedIndex)
+    if (s.showHikingOverlay) setShowHikingOverlay(s.showHikingOverlay)
+    if (s.largeLabels) setLargeLabels(s.largeLabels)
+  }, [])
+
+  // Sync layer changes to context
+  useEffect(() => {
+    setCtxLayer(currentLayer)
+  }, [currentLayer])
+
+  // Save state to context whenever tracked values change
+  useEffect(() => {
+    updatePageState('gpx', {
+      trackCoordinates,
+      gpxContent,
+      currentElevations,
+      tracks,
+      activeTrackId,
+      currentWaypoints,
+      autoFitTrack,
+      elevationTooltip,
+      isProfileDetached,
+      selectedIndex,
+      showHikingOverlay,
+      largeLabels,
+    })
+  }, [trackCoordinates, gpxContent, currentElevations, tracks, activeTrackId, currentWaypoints, autoFitTrack, elevationTooltip, isProfileDetached, selectedIndex, showHikingOverlay, largeLabels])
+
+  const handleResetPage = () => {
+    resetPage('gpx')
+    setTrackCoordinates([])
+    setGpxContent(null)
+    setCurrentElevations(null)
+    setTracks([])
+    setActiveTrackId(null)
+    setCurrentWaypoints([])
+    setAutoFitTrack(true)
+    setElevationTooltip(true)
+    setIsProfileDetached(false)
+    setSelectedIndex(null)
+    setShowHikingOverlay(false)
+    setLargeLabels(false)
+    showMessage('Pagina resettata', 'info')
+  }
 
   const openWaymarkedTrails = () => {
     if (mapRef.current) {
@@ -1181,10 +1245,20 @@ export default function GPXViewer() {
               {sidebarMode === 'wide' ? '🔽 Compatto' : '🔼 Larga'}
             </button>
           </div>
-          <FileUpload 
-            onFileLoad={handleFileLoad} 
-            onMultipleFileLoad={handleMultipleFileLoad}
-          />
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+            <FileUpload 
+              onFileLoad={handleFileLoad} 
+              onMultipleFileLoad={handleMultipleFileLoad}
+            />
+            <button 
+              className="reset-page-btn"
+              onClick={handleResetPage}
+              title="Resetta la pagina"
+              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff5f5', color: '#c0392b', cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}
+            >
+              🔄 Reset
+            </button>
+          </div>
           {elevationStatus && (
             <div className={`message ${elevationStatus.type}`}>
               {elevationStatus.text}

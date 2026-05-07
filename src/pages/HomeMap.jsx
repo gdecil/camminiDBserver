@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Map from '../components/Map'
 import LayerSelector from '../components/LayerSelector'
+import { useAppContext } from '../context/AppContext'
 import './HomeMap.css'
 
 const API_URL = '/api'
@@ -83,8 +84,9 @@ const handleExportItem = (item, e) => {
 }
 
 export default function HomeMap() {
+  const { currentLayer: ctxLayer, setCurrentLayer: setCtxLayer, pageState, updatePageState } = useAppContext()
   const [savedItems, setSavedItems] = useState([])
-  const [currentLayer, setCurrentLayer] = useState('OpenStreetMap')
+  const [currentLayer, setCurrentLayer] = useState(ctxLayer)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const [filterText, setFilterText] = useState('')
@@ -98,6 +100,11 @@ export default function HomeMap() {
   useEffect(() => {
     loadSavedItems()
   }, [])
+
+  // Sync layer changes to context
+  useEffect(() => {
+    setCtxLayer(currentLayer)
+  }, [currentLayer])
 
   // Sidebar resize handlers
   const handleResizeStart = (e) => {
