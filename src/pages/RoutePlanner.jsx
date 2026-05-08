@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Map from '../components/Map'
 import LayerSelector from '../components/LayerSelector'
@@ -601,7 +601,7 @@ export default function RoutePlanner() {
   }
 
   const showMessage = (text, type = 'info') => { setMessage({ text, type }); setTimeout(() => setMessage(null), 5000) }
-  const handleMapClick = (e) => { if (isFullscreen) return; const { lat, lng } = e.latlng; setWaypoints([...waypoints, { id: Date.now(), lat: lat.toFixed(6), lng: lng.toFixed(6), name: `Punto ${waypoints.length + 1}` }]) }
+  const handleMapClick = (e) => { if (isFullscreen) return; const { lat, lng } = e.latlng; setWaypoints([...waypoints, { id: Date.now(), lat: String(lat), lng: String(lng), name: `Punto ${waypoints.length + 1}` }]) }
   const addWaypoint = () => { setWaypoints([...waypoints, { id: Date.now(), lat: '', lng: '', name: `Tappa ${waypoints.length + 1}` }]) }
   const updateWaypoint = (id, field, value) => { setWaypoints(waypoints.map(wp => wp.id === id ? { ...wp, [field]: value } : wp)) }
   const removeWaypoint = (id) => { const nw = waypoints.filter(wp => wp.id !== id); setWaypoints(nw) }
@@ -616,7 +616,7 @@ export default function RoutePlanner() {
     if (nw.length >= 2) setTimeout(() => calculateMultiRoute(), 0)
   }
   const handleWaypointDragEnd = (index, newLat, newLng) => {
-    const nw = waypoints.map((wp, i) => i === index ? { ...wp, lat: newLat.toFixed(6), lng: newLng.toFixed(6) } : wp)
+    const nw = waypoints.map((wp, i) => i === index ? { ...wp, lat: String(newLat), lng: String(newLng) } : wp)
     setWaypoints(nw)
     // Rimosso ricalcolo automatico - si preme manualmente "Calcola"
   }
@@ -867,6 +867,11 @@ export default function RoutePlanner() {
   }
   const routeGPXContent = generateRouteGPXForProfile()
   const validWaypoints = waypoints.filter(wp => !isNaN(parseFloat(wp.lat)) && !isNaN(parseFloat(wp.lng)))
+  const mapWaypoints = useMemo(() => validWaypoints.map((wp, i) => ({
+    position: [parseFloat(wp.lat), parseFloat(wp.lng)],
+    color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length],
+    label: wp.name
+  })), [validWaypoints])
   const hoveredRoute = loadedTrackHoverIndex !== null && hoveredLoadedRouteId ? loadedRoutes.find(r => r.id === hoveredLoadedRouteId) : null
 
   const searchPois = async () => {
@@ -1068,7 +1073,7 @@ export default function RoutePlanner() {
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
           routeCoordinates={routeCoordinates} multipleTracks={loadedRoutes.map(r => ({ coordinates: r.coordinates, color: r.color }))}
           hoverTrack={hoveredRoute ? { coordinates: hoveredRoute.coordinates, color: hoveredRoute.color, index: loadedTrackHoverIndex } : null}
-          onMapClick={handleMapClick} currentLayer={currentLayer} waypoints={validWaypoints.map((wp, i) => ({ position: [parseFloat(wp.lat), parseFloat(wp.lng)], color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], label: wp.name }))}
+          onMapClick={handleMapClick} currentLayer={currentLayer} waypoints={mapWaypoints}
           poiMarker={selectedPoi ? { position: [selectedPoi.lat, selectedPoi.lng], icon: selectedPoi.icon, name: selectedPoi.name } : null} showHikingOverlay={showHikingOverlay} showElevationTooltip={elevationTooltip}
           onWaypointDragEnd={isFullscreen ? null : handleWaypointDragEnd} draggable={!isFullscreen} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} elevationData={elevationData} autoFitBounds={autoFitTrack && (routeCoordinates.length > 0 || validWaypoints.length > 0)} mapRef={mapRef} />
         {showRouteProfile && routeGPXContent && elevationData && !loadingElevation && <div className="route-profile-container"><ElevationProfile key={profileKey} gpxContent={routeGPXContent} isOverlay={false} routeCoordinates={routeCoordinates} totalDistance={distance ? parseFloat(distance) : null} selectedIndex={selectedIndex} onHover={(index) => setSelectedIndex(index)} /></div>}

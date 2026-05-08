@@ -231,22 +231,71 @@ function MarkersLayer({ markers, onMarkerClick }) {
 function DraggableWaypoints({ waypoints, onWaypointDragEnd, draggable = true }) {
   const map = useMap()
   const markersRef = useRef({})
+  const draggingRef = useRef(null)
+  // Track which indices we've already created markers for
+  const createdIndicesRef = useRef(new Set())
+
+  // Effect: only create NEW markers and REMOVE deleted markers
+  // NEVER updates positions of existing markers to avoid snap-back
   useEffect(() => {
-    Object.values(markersRef.current).forEach(marker => { if (marker) marker.remove() })
-    markersRef.current = {}
+    const newIndices = new Set(waypoints.map((_, i) => i))
+    const removed = []
+
     waypoints.forEach((wp, index) => {
-      const icon = createIcon(wp.color, wp.label, draggable)
-      const marker = L.marker(wp.position, { icon, draggable })
-      if (draggable) {
-        marker.on('dragend', function(e) {
-          if (onWaypointDragEnd) onWaypointDragEnd(index, e.target.getLatLng().lat, e.target.getLatLng().lng)
-        })
+      // Only create marker if we haven't created it for this index yet
+      if (!createdIndicesRef.current.has(index)) {
+        const icon = createIcon(wp.color, wp.label, draggable)
+        const marker = L.marker(wp.position, { icon, draggable })
+        if (draggable) {
+          marker.on('dragstart', function() {
+            draggingRef.current = marker
+            if (marker.getElement()) marker.getElement().style.cursor = 'grabbing'
+          })
+          marker.on('dragend', function(e) {
+            draggingRef.current = null
+            if (marker.getElement()) marker.getElement().style.cursor = 'grab'
+            if (onWaypointDragEnd) onWaypointDragEnd(index, e.target.getLatLng().lat, e.target.getLatLng().lng)
+          })
+          marker.on('drag', function() {
+            if (marker.getElement()) marker.getElement().style.cursor = 'grabbing'
+          })
+          marker.on('mouseover', function() {
+            if (marker.getElement()) marker.getElement().style.cursor = 'grab'
+          })
+        }
+        marker.addTo(map)
+        markersRef.current[index] = marker
+        createdIndicesRef.current.add(index)
       }
-      marker.addTo(map)
-      markersRef.current[index] = marker
     })
-    return () => { Object.values(markersRef.current).forEach(marker => { if (marker) marker.remove() }) }
+
+    // Remove markers for indices no longer in the waypoints array
+    for (const idx of createdIndicesRef.current) {
+      if (!newIndices.has(idx)) {
+        const marker = markersRef.current[idx]
+        if (marker) {
+          if (draggingRef.current === marker) continue
+          marker.remove()
+        }
+        delete markersRef.current[idx]
+        createdIndicesRef.current.delete(idx)
+      }
+    }
+
   }, [waypoints, map, onWaypointDragEnd, draggable])
+
+  // Separate effect for component unmount cleanup only
+  useEffect(() => {
+    return () => {
+      draggingRef.current = null
+      Object.values(markersRef.current).forEach(marker => {
+        if (marker) marker.remove()
+      })
+      markersRef.current = {}
+      createdIndicesRef.current.clear()
+    }
+  }, [])
+
   return null
 }
 
@@ -342,7 +391,7 @@ export default function Map({
         ))}
         {trackCoordinates.length > 0 && multipleTracks.length === 0 && <Polyline positions={trackCoordinates} color="#3498db" weight={4} opacity={0.8} />}
         {routeCoordinates.length > 0 && <Polyline positions={routeCoordinates} color="#e74c3c" weight={5} opacity={0.8} />}
-        {waypoints.length > 0 && onWaypointDragEnd && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable} />}
+        {waypoints.length > 0 && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable && !!onWaypointDragEnd} />}
         {startMarker && <Marker position={startMarker} icon={startIcon} />}
         {endMarker && <Marker position={endMarker} icon={endIcon} />}
         <MapInstance mapRef={mapRef} />
@@ -352,7 +401,6 @@ export default function Map({
         {hoverTrack && hoverTrack.coordinates && hoverTrack.coordinates.length > 0 && hoverTrack.index !== null && (
           <Marker position={hoverTrack.coordinates[Math.floor(hoverTrack.index * (hoverTrack.coordinates.length - 1))]} icon={L.divIcon({ className: 'loaded-track-hover-marker', html: `<div style="background-color: ${hoverTrack.color || '#ff9800'}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.5);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] })} interactive={false} zIndexOffset={1000} />
         )}
-        {waypoints.length > 0 && <DraggableWaypoints waypoints={waypoints} onWaypointDragEnd={onWaypointDragEnd} draggable={draggable && onWaypointDragEnd} />}
         {photoMarkers.length > 0 && <PhotoMarkersLayer photoMarkers={photoMarkers} itemId={itemId} onPhotoDrop={onPhotoDrop} onPhotoClick={onPhotoClick} />}
         {poiMarker && poiMarker.position && (
           <Marker position={poiMarker.position} icon={L.divIcon({ className: 'poi-marker', html: `<div style="display: flex; flex-direction: column; align-items: center;"><span style="background: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.3); font-weight: bold;">${poiMarker.icon} ${poiMarker.name}</span><div style="font-size: 24px; margin-top: -2px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));">📍</div></div>`, iconSize: [40, 40], iconAnchor: [20, 40] })} />
