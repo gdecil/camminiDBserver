@@ -232,55 +232,41 @@ function DraggableWaypoints({ waypoints, onWaypointDragEnd, draggable = true }) 
   const map = useMap()
   const markersRef = useRef({})
   const draggingRef = useRef(null)
-  // Track which indices we've already created markers for
-  const createdIndicesRef = useRef(new Set())
 
-  // Effect: only create NEW markers and REMOVE deleted markers
-  // NEVER updates positions of existing markers to avoid snap-back
   useEffect(() => {
-    const newIndices = new Set(waypoints.map((_, i) => i))
-    const removed = []
+    // Don't recreate markers if one is being dragged
+    if (draggingRef.current) return
 
-    waypoints.forEach((wp, index) => {
-      // Only create marker if we haven't created it for this index yet
-      if (!createdIndicesRef.current.has(index)) {
-        const icon = createIcon(wp.color, wp.label, draggable)
-        const marker = L.marker(wp.position, { icon, draggable })
-        if (draggable) {
-          marker.on('dragstart', function() {
-            draggingRef.current = marker
-            if (marker.getElement()) marker.getElement().style.cursor = 'grabbing'
-          })
-          marker.on('dragend', function(e) {
-            draggingRef.current = null
-            if (marker.getElement()) marker.getElement().style.cursor = 'grab'
-            if (onWaypointDragEnd) onWaypointDragEnd(index, e.target.getLatLng().lat, e.target.getLatLng().lng)
-          })
-          marker.on('drag', function() {
-            if (marker.getElement()) marker.getElement().style.cursor = 'grabbing'
-          })
-          marker.on('mouseover', function() {
-            if (marker.getElement()) marker.getElement().style.cursor = 'grab'
-          })
-        }
-        marker.addTo(map)
-        markersRef.current[index] = marker
-        createdIndicesRef.current.add(index)
-      }
+    // Remove all existing markers first
+    Object.values(markersRef.current).forEach(marker => {
+      if (marker) marker.remove()
     })
-
-    // Remove markers for indices no longer in the waypoints array
-    for (const idx of createdIndicesRef.current) {
-      if (!newIndices.has(idx)) {
-        const marker = markersRef.current[idx]
-        if (marker) {
-          if (draggingRef.current === marker) continue
-          marker.remove()
-        }
-        delete markersRef.current[idx]
-        createdIndicesRef.current.delete(idx)
+    markersRef.current = {}
+    
+    // Recreate all markers with current waypoints data
+    waypoints.forEach((wp, index) => {
+      const icon = createIcon(wp.color, wp.label, draggable)
+      const marker = L.marker(wp.position, { icon, draggable })
+      if (draggable) {
+        marker.on('dragstart', function() {
+          draggingRef.current = marker
+          if (marker.getElement()) marker.getElement().style.cursor = 'grabbing'
+        })
+        marker.on('dragend', function(e) {
+          draggingRef.current = null
+          if (marker.getElement()) marker.getElement().style.cursor = 'grab'
+          if (onWaypointDragEnd) onWaypointDragEnd(index, e.target.getLatLng().lat, e.target.getLatLng().lng)
+        })
+        marker.on('drag', function() {
+          if (marker.getElement()) marker.getElement().style.cursor = 'grabbing'
+        })
+        marker.on('mouseover', function() {
+          if (marker.getElement()) marker.getElement().style.cursor = 'grab'
+        })
       }
-    }
+      marker.addTo(map)
+      markersRef.current[index] = marker
+    })
 
   }, [waypoints, map, onWaypointDragEnd, draggable])
 
@@ -292,7 +278,6 @@ function DraggableWaypoints({ waypoints, onWaypointDragEnd, draggable = true }) 
         if (marker) marker.remove()
       })
       markersRef.current = {}
-      createdIndicesRef.current.clear()
     }
   }, [])
 
