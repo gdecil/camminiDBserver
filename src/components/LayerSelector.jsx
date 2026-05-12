@@ -1,7 +1,7 @@
 import './LayerSelector.css'
 import { LAYERS } from './mapConfig'
 
-export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, elevationTooltip, onElevationTooltipToggle, largeLabels, onLargeLabelsToggle, onOpenWaymarkedTrails, onOpenReliefMaps, onOpenHistoricalMaps, onOpenOldMaps }) {
+export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, elevationTooltip, onElevationTooltipToggle, largeLabels, onLargeLabelsToggle, onOpenWaymarkedTrails, onOpenReliefMaps, onOpenHistoricalMaps, onOpenOldMaps, onOpenOverpassTurbo }) {
   return (
     <div className={`layer-selector ${largeLabels ? 'large-labels' : ''}`}>
       <div className="selector-group">
@@ -59,7 +59,7 @@ export default function LayerSelector({ currentLayer, onLayerChange, showHikingO
               </label>
             )}
           </div>
-          {(onOpenWaymarkedTrails || onOpenReliefMaps || onOpenHistoricalMaps || onOpenOldMaps) && (
+          {(onOpenWaymarkedTrails || onOpenReliefMaps || onOpenHistoricalMaps || onOpenOldMaps || onOpenOverpassTurbo) && (
             <div style={{ flex: '2', minWidth: 0, display: 'flex', flexDirection: 'row', gap: '4px' }}>
               <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {onOpenWaymarkedTrails && (
@@ -123,8 +123,28 @@ export default function LayerSelector({ currentLayer, onLayerChange, showHikingO
                   </button>
                 )}
               </div>
-              {onOpenOldMaps && (
-                <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {onOpenOverpassTurbo && (
+                  <button
+                    onClick={onOpenOverpassTurbo}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      background: '#5a5a8a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Apri Overpass Turbo con la stessa posizione"
+                  >
+                    🔍 Overpass
+                  </button>
+                )}
+                {onOpenOldMaps && (
                   <button
                     onClick={onOpenOldMaps}
                     style={{
@@ -143,8 +163,8 @@ export default function LayerSelector({ currentLayer, onLayerChange, showHikingO
                   >
                     🗺️ Old Maps
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </div>

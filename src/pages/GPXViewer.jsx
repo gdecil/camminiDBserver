@@ -149,6 +149,17 @@ export default function GPXViewer() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  const openOverpassTurbo = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const zoom = mapRef.current.getZoom()
+      const lat = center.lat.toFixed(5)
+      const lng = center.lng.toFixed(5)
+      const url = `https://overpass-turbo.eu/?C=${lat};${lng};${Math.round(zoom)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   // Sidebar resize handlers
   const handleResizeStart = (e) => {
     e.preventDefault()
@@ -1169,6 +1180,7 @@ export default function GPXViewer() {
           onOpenReliefMaps={openReliefMaps}
           onOpenHistoricalMaps={openHistoricalMaps}
           onOpenOldMaps={openOldMaps}
+          onOpenOverpassTurbo={openOverpassTurbo}
         />
         
         <button 

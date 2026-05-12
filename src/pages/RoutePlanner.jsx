@@ -377,6 +377,17 @@ export default function RoutePlanner() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  const openOverpassTurbo = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const zoom = mapRef.current.getZoom()
+      const lat = center.lat.toFixed(5)
+      const lng = center.lng.toFixed(5)
+      const url = `https://overpass-turbo.eu/?C=${lat};${lng};${Math.round(zoom)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   // Geocoding state
   // Restore persisted state from context on mount
   useEffect(() => {
@@ -1083,7 +1094,7 @@ export default function RoutePlanner() {
   return (
     <div className={`route-planner ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       <div className="map-section">
-        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} elevationTooltip={elevationTooltip} onElevationTooltipToggle={setElevationTooltip} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} onOpenWaymarkedTrails={openWaymarkedTrails} onOpenReliefMaps={openReliefMaps} onOpenHistoricalMaps={openHistoricalMaps} onOpenOldMaps={openOldMaps} />
+        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} elevationTooltip={elevationTooltip} onElevationTooltipToggle={setElevationTooltip} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} onOpenWaymarkedTrails={openWaymarkedTrails} onOpenReliefMaps={openReliefMaps} onOpenHistoricalMaps={openHistoricalMaps} onOpenOldMaps={openOldMaps} onOpenOverpassTurbo={openOverpassTurbo} />
         <button className="fullscreen-btn" onClick={() => { !isFullscreen ? document.documentElement.requestFullscreen?.() : document.exitFullscreen?.(); setIsFullscreen(!isFullscreen) }} title={isFullscreen ? 'Esci' : 'Fullscreen'}>{isFullscreen ? '✕' : '⛶'}</button>
         <Map trackCoordinates={routeCoordinates} startMarker={validWaypoints.length > 0 ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)] : null}
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
