@@ -133,6 +133,22 @@ export default function GPXViewer() {
     }
   }
 
+  const openHistoricalMaps = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const zoom = mapRef.current.getZoom()
+      const lat = center.lat.toFixed(2)
+      const lng = center.lng.toFixed(2)
+      const url = `https://www.openhistoricalmap.org/#map=${zoom}/${lat}/${lng}&layers=O`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const openOldMaps = () => {
+    const url = 'https://www.oldmapsonline.org/it/history/regions#position=5/45.54/10.21&year=1869'
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   // Sidebar resize handlers
   const handleResizeStart = (e) => {
     e.preventDefault()
@@ -1151,6 +1167,8 @@ export default function GPXViewer() {
           onLargeLabelsToggle={setLargeLabels}
           onOpenWaymarkedTrails={openWaymarkedTrails}
           onOpenReliefMaps={openReliefMaps}
+          onOpenHistoricalMaps={openHistoricalMaps}
+          onOpenOldMaps={openOldMaps}
         />
         
         <button 

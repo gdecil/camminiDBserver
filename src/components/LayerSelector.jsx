@@ -1,7 +1,7 @@
 import './LayerSelector.css'
 import { LAYERS } from './mapConfig'
 
-export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, elevationTooltip, onElevationTooltipToggle, largeLabels, onLargeLabelsToggle, onOpenWaymarkedTrails, onOpenReliefMaps }) {
+export default function LayerSelector({ currentLayer, onLayerChange, showHikingOverlay, onOverlayToggle, autoFitTrack, onAutoFitToggle, elevationTooltip, onElevationTooltipToggle, largeLabels, onLargeLabelsToggle, onOpenWaymarkedTrails, onOpenReliefMaps, onOpenHistoricalMaps, onOpenOldMaps }) {
   return (
     <div className={`layer-selector ${largeLabels ? 'large-labels' : ''}`}>
       <div className="selector-group">
@@ -59,47 +59,91 @@ export default function LayerSelector({ currentLayer, onLayerChange, showHikingO
               </label>
             )}
           </div>
-          {(onOpenWaymarkedTrails || onOpenReliefMaps) && (
-            <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {onOpenWaymarkedTrails && (
-                <button
-                  onClick={onOpenWaymarkedTrails}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.75rem',
-                    background: '#5a8f5a',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title="Apri Waymarked Trails con la stessa posizione"
-                >
-                  🥾 Waymarked Trails
-                </button>
-              )}
-              {onOpenReliefMaps && (
-                <button
-                  onClick={onOpenReliefMaps}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.75rem',
-                    background: '#5a7fb5',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    width: '100%',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title="Apri Relief Maps con la stessa posizione"
-                >
-                  🗺️ Relief Maps
-                </button>
+          {(onOpenWaymarkedTrails || onOpenReliefMaps || onOpenHistoricalMaps || onOpenOldMaps) && (
+            <div style={{ flex: '2', minWidth: 0, display: 'flex', flexDirection: 'row', gap: '4px' }}>
+              <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {onOpenWaymarkedTrails && (
+                  <button
+                    onClick={onOpenWaymarkedTrails}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      background: '#5a8f5a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Apri Waymarked Trails con la stessa posizione"
+                  >
+                    🥾 Waymarked Trails
+                  </button>
+                )}
+                {onOpenReliefMaps && (
+                  <button
+                    onClick={onOpenReliefMaps}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      background: '#5a7fb5',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Apri Relief Maps con la stessa posizione"
+                  >
+                    🗺️ Relief Maps
+                  </button>
+                )}
+                {onOpenHistoricalMaps && (
+                  <button
+                    onClick={onOpenHistoricalMaps}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      background: '#8B5E3C',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Apri OpenHistoricalMap con la stessa posizione"
+                  >
+                    🏛️ Historical
+                  </button>
+                )}
+              </div>
+              {onOpenOldMaps && (
+                <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button
+                    onClick={onOpenOldMaps}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      background: '#D4A76A',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Apri Old Maps Online"
+                  >
+                    🗺️ Old Maps
+                  </button>
+                </div>
               )}
             </div>
           )}

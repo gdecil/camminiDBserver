@@ -361,6 +361,22 @@ export default function RoutePlanner() {
     }
   }
 
+  const openHistoricalMaps = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter()
+      const zoom = mapRef.current.getZoom()
+      const lat = center.lat.toFixed(2)
+      const lng = center.lng.toFixed(2)
+      const url = `https://www.openhistoricalmap.org/#map=${zoom}/${lat}/${lng}&layers=O`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const openOldMaps = () => {
+    const url = 'https://www.oldmapsonline.org/it/history/regions#position=5/45.54/10.21&year=1869'
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   // Geocoding state
   // Restore persisted state from context on mount
   useEffect(() => {
@@ -1067,7 +1083,7 @@ export default function RoutePlanner() {
   return (
     <div className={`route-planner ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       <div className="map-section">
-        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} elevationTooltip={elevationTooltip} onElevationTooltipToggle={setElevationTooltip} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} onOpenWaymarkedTrails={openWaymarkedTrails} onOpenReliefMaps={openReliefMaps} />
+        <LayerSelector currentLayer={currentLayer} onLayerChange={setCurrentLayer} showHikingOverlay={showHikingOverlay} onOverlayToggle={setShowHikingOverlay} autoFitTrack={autoFitTrack} onAutoFitToggle={setAutoFitTrack} elevationTooltip={elevationTooltip} onElevationTooltipToggle={setElevationTooltip} largeLabels={largeLabels} onLargeLabelsToggle={setLargeLabels} onOpenWaymarkedTrails={openWaymarkedTrails} onOpenReliefMaps={openReliefMaps} onOpenHistoricalMaps={openHistoricalMaps} onOpenOldMaps={openOldMaps} />
         <button className="fullscreen-btn" onClick={() => { !isFullscreen ? document.documentElement.requestFullscreen?.() : document.exitFullscreen?.(); setIsFullscreen(!isFullscreen) }} title={isFullscreen ? 'Esci' : 'Fullscreen'}>{isFullscreen ? '✕' : '⛶'}</button>
         <Map trackCoordinates={routeCoordinates} startMarker={validWaypoints.length > 0 ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)] : null}
           endMarker={validWaypoints.length > 1 ? [parseFloat(validWaypoints[validWaypoints.length - 1].lat), parseFloat(validWaypoints[validWaypoints.length - 1].lng)] : null}
