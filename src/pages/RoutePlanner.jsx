@@ -718,9 +718,32 @@ export default function RoutePlanner() {
     if (coordinates?.length < 2) return; setLoadingElevation(true)
     try {
       // Use all coordinates (no sampling) for maximum accuracy with local API
-      const response = await fetch(`${API_URL}/elevation`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locations: coordinates.map(c => ({ lat: c[0], lng: c[1] })) }) })
-      const data = await response.json()
-      if (data.status === 'OK' && data.results) {
+      let data;
+      try {
+        const sample = coordinates.length > 100 ? coordinates.filter((_, idx)=>idx % Math.ceil(coordinates.length/100)===0).slice(0,100) : coordinates;
+        const response = await fetch(`${API_URL}/elevation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ locations: sample.map(c => ({ lat: c[0], lng: c[1] })) })
+        });
+        if (!response.ok) throw new Error('Local elevation API error');
+        data = await response.json();
+      } catch (e) {
+        console.warn('Local elevation fetch failed, falling back to OpenTopoData', e);
+        // fallback
+        const sampleOpenTopo = coordinates.length > 100 ? coordinates.filter((_, idx)=>idx % Math.ceil(coordinates.length/100)===0).slice(0,100) : coordinates;
+ const locationString = sampleOpenTopo.map(c => `${c[0].toFixed(6)},${c[1].toFixed(6)}`).join('|');
+        try {
+          const otResponse = await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${encodeURIComponent(locationString)}`);
+          if (!otResponse.ok) throw new Error('OpenTopoData error');
+          data = await otResponse.json();
+        } catch (err) {
+          console.error('Both elevation sources failed', err);
+          return;
+        }
+      }
+
+      if (data && data.status === 'OK' && data.results) {
         const elevations = data.results.map(r => r.elevation).filter(e => e !== null)
         if (elevations.length > 1) {
           let ascent = 0, descent = 0
